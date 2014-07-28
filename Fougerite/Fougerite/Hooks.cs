@@ -248,9 +248,9 @@ namespace Fougerite
             {
                 HurtEvent he = new HurtEvent(ref e, new Entity(entity));
                 if (decayList.Contains(entity))
-                    he.IsDecay = true;
+                    return;
 
-                if (he.Entity.IsStructure() && !he.IsDecay)
+                if (he.Entity.IsStructure())
                 {
                     StructureComponent component = entity as StructureComponent;
                     if ((component.IsType(StructureComponent.StructureComponentType.Ceiling) || component.IsType(StructureComponent.StructureComponentType.Foundation)) || component.IsType(StructureComponent.StructureComponentType.Pillar))
