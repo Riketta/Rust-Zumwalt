@@ -7,7 +7,6 @@
     {
         private object _attacker;
         private DamageEvent _de;
-        private bool _decay;
         private Fougerite.Entity _ent;
         private object _victim;
         private string _weapon;
@@ -35,7 +34,6 @@
             }
             this.DamageEvent = d;
             this.WeaponData = null;
-            this.IsDecay = false;
             if (d.extraData != null)
             {
                 WeaponImpact extraData = d.extraData as WeaponImpact;
@@ -138,18 +136,6 @@
             set
             {
                 this._ent = value;
-            }
-        }
-
-        public bool IsDecay
-        {
-            get
-            {
-                return this._decay;
-            }
-            set
-            {
-                this._decay = value;
             }
         }
 
