@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -20,10 +20,26 @@ namespace Fougerite.Patcher
                 Logger.Log("No command specified.");
                 Logger.Log("Launch patcher with args: \"-1\" (fields update) or\\and \"-2\" (methods update).");
                 Logger.Log("Or enter \"0\" to patch with both flags");
-                if (Console.ReadLine() == "0")
+                string readResponse =  Console.ReadLine();
+                if (readResponse == "0")
                 {
                     firstPass = true;
                     secondPass = true;
+                }
+                else if (readResponse == "-1")
+                {
+                    firstPass = true;
+                }
+                else if (readResponse == "-2")
+                {
+                    secondPass = true;
+                }
+                else
+                {
+                    Logger.Log("Unknown argument.");
+                    Logger.Log("Press any key to continue...");
+                    Console.ReadKey();
+                    return;
                 }
             }
 
@@ -43,7 +59,10 @@ namespace Fougerite.Patcher
             if (result) {
                 Logger.Log("The patch was applied successfully!");
             }
-            Console.ReadLine();
+
+            //Is that really needed for anything ? It makes it harder to automate
+            Logger.Log("Press any key to continue...");
+            Console.ReadKey();
         }
     }
 }
