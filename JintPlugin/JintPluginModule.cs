@@ -1,7 +1,7 @@
 ﻿using System.Text.RegularExpressions;
 using System.Threading;
 
-namespace JintPlugin
+namespace JintModule
 {
     using System;
     using System.Collections;
@@ -33,14 +33,17 @@ namespace JintPlugin
         }
 
         private DirectoryInfo pluginDirectory;
-        private Dictionary<string, Plugin> plugins;
+        private static Dictionary<string, JintPlugin> plugins;
         public static Hashtable inifiles = new Hashtable();
         private readonly string brktname = "[Jint]";
+        public delegate void AllLoadedDelegate();
+        public static event AllLoadedDelegate OnAllLoaded;
+        public static Dictionary<string, JintPlugin> Plugins { get { return plugins; } }
 
         public override void Initialize()
         {
+            plugins = new Dictionary<string, JintPlugin>();
             pluginDirectory = new DirectoryInfo(ModuleFolder);
-            plugins = new Dictionary<string, Plugin>();
             ReloadPlugins();
             Hooks.OnConsoleReceived -= new Hooks.ConsoleHandlerDelegate(ConsoleReceived);
             Hooks.OnConsoleReceived += new Hooks.ConsoleHandlerDelegate(ConsoleReceived);
@@ -119,14 +122,14 @@ namespace JintPlugin
 
             if (plugins.ContainsKey(name)) {
                 var plugin = plugins[name];
-
+                plugin.OnPluginShutdown();
                 plugin.RemoveHooks();
                 plugin.KillTimers();
                 plugin.AdvancedTimers.KillTimers();
                 if (removeFromDict)
                     plugins.Remove(name);
-
-                Logger.Log(string.Format("{0} {1} plugin was unloaded successfuly.", brktname, name));
+                GlobalPluginCollector.GetPluginCollector().RemovePlugin(name);
+                Logger.Log(string.Format("{0} {1} plugin was unloaded successfully.", brktname, name));
             } else {
                 Logger.LogError(string.Format("{0} Can't unload {1}. Plugin is not loaded.", brktname, name));
                 throw new InvalidOperationException(string.Format("{0} Can't unload {1}. Plugin is not loaded.", brktname, name));
@@ -151,15 +154,17 @@ namespace JintPlugin
 
             if (plugins.ContainsKey(name)) {
                 Logger.LogError(string.Format("{0} {1} plugin is already loaded.", brktname, name));
-                throw new InvalidOperationException(string.Format("{0} {1} plugin is already loaded.", brktname, name));
+                return;
+                //throw new InvalidOperationException(string.Format("{0} {1} plugin is already loaded.", brktname, name));
             }
 
             try {
                 string text = GetPluginScriptText(name);
                 string[] lines = text.Split(new string[] { "\r\n", "\n" }, StringSplitOptions.None);
                 DirectoryInfo dir = new DirectoryInfo(Path.Combine(pluginDirectory.FullName, name));
-                Plugin plugin = new Plugin(dir, name, text);
+                JintPlugin plugin = new JintPlugin(dir, name, text);
                 plugin.InstallHooks();
+                plugin.Invoke("On_PluginInit");
                 string cmdname = null;
                 bool b = false, d = false, f = false;
                 foreach (string line in lines)
@@ -188,10 +193,10 @@ namespace JintPlugin
                             {
                                 if (!d && f)
                                 {
-                                    Logger.LogWarning("I detected the usage of custom commands in " + plugin.Name);
-                                    Logger.LogWarning("Make sure you add the commands manually to: Plugin.CommandList");
-                                    Logger.LogWarning("Example: Plugin.CommandList.Add(ini.GetSetting(...))");
-                                    Logger.LogWarning("If you have questions go to www.fougerite.com !");
+                                    Logger.LogDebug("I detected the usage of custom commands in " + plugin.Name);
+                                    Logger.LogDebug("Make sure you add the commands manually to: Plugin.CommandList");
+                                    Logger.LogDebug("Example: Plugin.CommandList.Add(ini.GetSetting(...))");
+                                    Logger.LogDebug("If you have questions go to www.fougerite.com !");
                                     d = true;
                                 }
                                 continue;
@@ -210,10 +215,10 @@ namespace JintPlugin
                             {
                                 if (!d && f)
                                 {
-                                    Logger.LogWarning("I detected the usage of custom commands in: " + plugin.Name);
-                                    Logger.LogWarning("Make sure you add the commands manually to: Plugin.CommandList");
-                                    Logger.LogWarning("Example: Plugin.CommandList.Add(ini.GetSetting(...))");
-                                    Logger.LogWarning("If you have questions go to www.fougerite.com !");
+                                    Logger.LogDebug("I detected the usage of custom commands in: " + plugin.Name);
+                                    Logger.LogDebug("Make sure you add the commands manually to: Plugin.CommandList");
+                                    Logger.LogDebug("Example: Plugin.CommandList.Add(ini.GetSetting(...))");
+                                    Logger.LogDebug("If you have questions go to www.fougerite.com !");
                                     d = true;
                                 }
                                 continue;
@@ -237,8 +242,12 @@ namespace JintPlugin
                 }
                 if (d) { plugin.CommandList.Clear(); }
                 plugins[name] = plugin;
-
-                Logger.Log(string.Format("{0} {1} plugin was loaded successfuly.", brktname, name));
+                GlobalPluginCollector.GetPluginCollector().AddPlugin(name, plugin, "JavaScript2");
+                Logger.Log(string.Format("{0} {1} plugin by {2} V{3} was loaded successfully.", brktname, name, plugin.Author, plugin.Version));
+                if (!string.IsNullOrEmpty(plugin.About) && plugin.About != "undefined")
+                {
+                    Logger.LogError(string.Format("{0} Description: {1}", brktname, plugin.About));
+                }
             } catch (Exception ex) {
                 Logger.LogError(string.Format("{0} {1} plugin could not be loaded.", brktname, name));
                 Logger.LogException(ex);
@@ -265,16 +274,8 @@ namespace JintPlugin
             foreach (var name in GetPluginNames())
             {
                 LoadPlugin(name);
-                /*Thread thread = new Thread(() => LoadPlugin(name));
-                thread.Start();
-                if (!thread.Join(10000))
-                {
-                    UnloadPlugin(name);
-                    Logger.LogError(brktname + " " + name + " is taking too long to load. Aborting.");
-                }
-                thread.Abort();*/
             }
-
+            if (OnAllLoaded != null) OnAllLoaded();
         }
 
         private IEnumerable<string> getBetween(string input, string start, string end)

@@ -9,39 +9,52 @@
 
     public class PrivateMessagesCommand : ChatCommand
     {
+        string green = "[color #009900]";
+        string teal = "[color #00FFFF]";
+
         public override void Execute(ref ConsoleSystem.Arg Arguments, ref string[] ChatArguments)
         {
+            Fougerite.Player sender = Fougerite.Server.Cache[Arguments.argUser.userID];
             if (ChatArguments.Length < 2)
             {
-                Util.sayUser(Arguments.argUser.networkPlayer, Core.Name, "Private Message Usage:  /pm playerName message");
+                sender.MessageFrom(Core.Name, "Private Message Usage:  /pm playerName message");
                 return;
             }
             string search = ChatArguments[0];
-            for (int i = 1; i < ChatArguments.Length; i++)
+            Fougerite.Player recipient = Fougerite.Player.FindByName(search);
+            if (recipient == null)
             {
-                PlayerClient recipient = Fougerite.Player.FindByName(search).PlayerClient as PlayerClient;
-                if (recipient == null)
-                {
-                    search += string.Format(" {0}", ChatArguments[i]);
-                    continue;
-                }
-
-                string message = Arguments.ArgsStr.Replace(search, "").Trim(new char[] { ' ', '"' }).Replace('"', 'ˮ');
-                if (message == string.Empty)
-                    Util.sayUser(Arguments.argUser.networkPlayer, Core.Name, "Private Message Usage:  /pm playerName message");
-                else
-                {
-                    Util.say(recipient.netPlayer, string.Format("\"PM from {0}\"", Arguments.argUser.displayName.Replace('"', 'ˮ')), string.Format("\"{0}\"", message));
-                    Util.say(Arguments.argUser.networkPlayer, string.Format("\"PM to {0}\"", recipient.netUser.displayName.Replace('"', 'ˮ')), string.Format("\"{0}\"", message));
-                    Hashtable replies = (ChatCommand.GetCommand("r") as ReplyCommand).GetReplies();
-                    if (replies.ContainsKey(recipient.netUser.displayName))
-                        replies[recipient.netUser.displayName] = Arguments.argUser.displayName;
-                    else
-                        replies.Add(recipient.netUser.displayName, Arguments.argUser.displayName);
-                }
+                sender.MessageFrom(Core.Name, "Couldn't find player " + search);
                 return;
             }
-            Util.sayUser(Arguments.argUser.networkPlayer, Core.Name, string.Format("No player found matching the name: {0}", search.Replace('"', 'ˮ')));
+            List<string> wth = ChatArguments.ToList();
+            wth.Remove(wth[0]);
+            string message;
+            try
+            {
+                message = string.Join(" ", wth.ToArray()).Replace(search, "").Trim(new char[] {' ', '"'}).Replace('"', 'ˮ');
+            }
+            catch
+            {
+                sender.MessageFrom(Core.Name, "Something went wrong. Try again.");
+                return;
+            }
+            if (message == string.Empty)
+            {
+                sender.MessageFrom(Core.Name, "Private Message Usage: /pm playerName message");
+            }
+            else
+            {
+                recipient.MessageFrom("PrivateMessage", green + "(" + sender.Name + " -> You):  " + teal + message);
+                sender.MessageFrom("PrivateMessage", green + "(You -> " + recipient.Name + "):  " + teal + message);
+                //Util.say(recipient.netPlayer, string.Format("\"PM from {0}\"", Arguments.argUser.displayName.Replace('"', 'ˮ')), string.Format("\"{0}\"", message));
+                //Util.say(Arguments.argUser.networkPlayer,string.Format("\"PM to {0}\"", recipient.netUser.displayName.Replace('"', 'ˮ')),string.Format("\"{0}\"", message));
+                Hashtable replies = (ChatCommand.GetCommand("r") as ReplyCommand).GetReplies();
+                if (replies.ContainsKey(recipient.Name))
+                    replies[recipient.Name] = sender.Name;
+                else
+                    replies.Add(recipient.Name, sender.Name);
+            }
         }
     }
 }

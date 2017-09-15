@@ -8,17 +8,19 @@
     {
         public override void Execute(ref ConsoleSystem.Arg Arguments, ref string[] ChatArguments)
         {
+            var pl = Fougerite.Server.Cache[Arguments.argUser.userID];
             string strText = string.Join(" ", ChatArguments).Trim(new char[] { ' ', '"' });
 
             if (strText == string.Empty)
             {
-                Util.sayUser(Arguments.argUser.networkPlayer, Core.Name, "Announce Usage:  /announce your message here");
-            } else
+                pl.MessageFrom(Core.Name, "Announce Usage:  /announce your message here");
+            }
+            else
             {
                 char ch = '☢';
-                foreach (PlayerClient client in PlayerClient.All)
+                foreach (Fougerite.Player client in Fougerite.Server.GetServer().Players)
                 {
-                    Notice.Popup(client.netPlayer, ch.ToString(), strText, 5f);
+                    client.Notice(ch.ToString(), strText, 5f);
                 }
             }   
         }

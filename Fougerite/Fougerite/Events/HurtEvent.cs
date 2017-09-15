@@ -13,10 +13,15 @@
         private object _victim;
         private string _weapon;
         private WeaponImpact _wi;
-        private readonly bool _playerattacker;
         private readonly bool _playervictim;
-        private bool _sleeper;
-        private LifeStatus _status;
+        private readonly bool _entityvictim = false;
+        private readonly bool _npcvictim = false;
+        private readonly bool _playerattacker;
+        private readonly bool _entityattacker = false;
+        private readonly bool _metabolismattacker = false;
+        private readonly bool _npcattacker = false;
+        private readonly bool _sleeper;
+        private readonly LifeStatus _status;
 
         public HurtEvent(ref DamageEvent d)
         {
@@ -34,33 +39,40 @@
                     if (d.victim.id.ToString().ToLower().Contains("sleeping"))
                     {
                         this._sleeper = true;
-                        DeployableObject sleeper = d.victim.idMain as DeployableObject;
+                        DeployableObject sleeper = (DeployableObject) d.victim.idMain;
                         this.Victim = new Sleeper(sleeper);
                     }
                     else
                     {
                         this.Victim = new Entity(d.victim.idMain.GetComponent<DeployableObject>());
+                        this._ent = new Entity(d.victim.idMain.GetComponent<DeployableObject>());
+                        this._entityvictim = true;
                     }
                     this._playervictim = false;
                 }
                 else if (d.victim.idMain is StructureComponent)
                 {
                     this.Victim = new Entity(d.victim.idMain.GetComponent<StructureComponent>());
+                    this._ent = new Entity(d.victim.idMain.GetComponent<StructureComponent>());
                     this._playervictim = false;
+                    this._entityvictim = true;
                 }
                 else if (d.victim.id is SpikeWall)
                 {
                     this._playerattacker = false;
                     this.Victim = new Entity(d.victim.idMain.GetComponent<DeployableObject>());
+                    this._ent = new Entity(d.victim.idMain.GetComponent<DeployableObject>());
+                    this._entityvictim = true;
                 }
                 else if (d.victim.client != null)
                 {
-                    this.Victim = Fougerite.Server.Cache[d.victim.client.userID];
+                    this.Victim = !Fougerite.Server.Cache.ContainsKey(d.victim.client.userID) ? Fougerite.Player.FindByPlayerClient(d.attacker.client) : Fougerite.Server.Cache[d.victim.client.userID];
                     this._playervictim = true;
                 }
                 else if (d.victim.character != null)
                 {
                     this.Victim = new NPC(d.victim.character);
+                    this._npcvictim = true;
                     this._playervictim = false;
                 }
                 if (!(bool) d.attacker.id)
@@ -76,19 +88,21 @@
                 {
                     this._playerattacker = false;
                     this.Attacker = new Entity(d.attacker.idMain.GetComponent<DeployableObject>());
+                    this._entityattacker = true;
                     weaponName = d.attacker.id.ToString().Contains("Large") ? "Large Spike Wall" : "Spike Wall";
                 }
                 else if (d.attacker.id is SupplyCrate)
                 {
                     this._playerattacker = false;
                     this.Attacker = new Entity(d.attacker.idMain.gameObject);
+                    this._entityattacker = true;
                     weaponName = "Supply Crate";
                 }
                 else if (d.attacker.id is Metabolism && d.victim.id is Metabolism)
                 {
-                    //this.Attacker = Fougerite.Server.Cache[d.attacker.client.userID];
-                    this.Attacker = Fougerite.Player.FindByPlayerClient(d.attacker.client);
+                    this.Attacker = !Fougerite.Server.Cache.ContainsKey(d.attacker.client.userID) ? Fougerite.Player.FindByPlayerClient(d.attacker.client) : Fougerite.Server.Cache[d.attacker.client.userID];
                     this._playerattacker = false;
+                    this._metabolismattacker = true;
                     this.Victim = this.Attacker;
                     ICollection<string> list = new List<string>();
                     Fougerite.Player vic = this.Victim as Fougerite.Player;
@@ -99,13 +113,6 @@
                     if (vic.IsRadPoisoned)
                     {
                         list.Add("Radiation");
-                        /*if (vic.RadLevel > 5000)
-                        {
-                            vic.AddRads(-vic.RadLevel);
-                            d.amount = 0;
-                            _de.amount = 0;
-                            Logger.LogDebug("[RadiationHack] Someone tried to kill " + vic.Name + " with radiation hacks.");
-                        }*/
                     }
                     if (vic.IsPoisoned)
                     {
@@ -121,24 +128,18 @@
                         if (this.DamageType != "Unknown" && !list.Contains(this.DamageType))
                             list.Add(this.DamageType);
                     }
-                    if (list.Count > 0)
-                    {
-                        weaponName = string.Format("Self ({0})", string.Join(",", list.ToArray()));
-                    }
-                    else
-                    {
-                        weaponName = this.DamageType;
-                    }
+                    weaponName = list.Count > 0 ? string.Format("Self ({0})", string.Join(",", list.ToArray())) : this.DamageType;
                 }
                 else if (d.attacker.client != null)
                 {
-                    this.Attacker = Fougerite.Server.Cache[d.attacker.client.userID];
+                    if (!Fougerite.Server.Cache.ContainsKey(d.attacker.client.userID)) {this.Attacker = Fougerite.Player.FindByPlayerClient(d.attacker.client);}
+                    else {this.Attacker = Fougerite.Server.Cache[d.attacker.client.userID];}
                     this._playerattacker = true;
                     if (d.extraData != null)
                     {
                         WeaponImpact extraData = d.extraData as WeaponImpact;
                         this.WeaponData = extraData;
-                        if (extraData.dataBlock != null)
+                        if (extraData != null && extraData.dataBlock != null)
                         {
                             weaponName = extraData.dataBlock.name;
                         }
@@ -174,6 +175,7 @@
                 {
                     this.Attacker = new NPC(d.attacker.character);
                     this._playerattacker = false;
+                    this._npcattacker = true;
                     weaponName = string.Format("{0} Claw", (this.Attacker as NPC).Name);
                 }
                 this.WeaponName = weaponName;
@@ -207,7 +209,16 @@
             get { return this._status; }
         }
 
+        [System.Obsolete("Sleeper is deprecated, please use VictimIsSleeper instead.")]
         public bool Sleeper
+        {
+            get
+            {
+                return this._sleeper;
+            }
+        }
+
+        public bool VictimIsSleeper
         {
             get
             {
@@ -345,11 +356,51 @@
             }       
         }
 
+        public bool VictimIsEntity
+        {
+            get
+            {
+                return this._entityvictim;
+            }
+        }
+
+        public bool VictimIsNPC
+        {
+            get
+            {
+                return this._npcvictim;
+            }
+        }
+
         public bool AttackerIsPlayer
         {
             get
             {
                 return this._playerattacker;
+            }
+        }
+
+        public bool AttackerIsEntity
+        {
+            get
+            {
+                return this._entityattacker;
+            }
+        }
+
+        public bool AttackerIsMetabolism
+        {
+            get
+            {
+                return this._metabolismattacker;
+            }
+        }
+
+        public bool AttackerIsNPC
+        {
+            get
+            {
+                return this._npcattacker;
             }
         }
     }

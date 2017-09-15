@@ -21,6 +21,8 @@
 
         public static void CallCommand(string cmd, ref ConsoleSystem.Arg arg, ref string[] chatArgs)
         {
+            var pl = Fougerite.Server.Cache[arg.argUser.userID];
+            if (pl.CommandCancelList.Contains(cmd)) { return; }
             foreach (ChatCommand command in classInstances)
             {
                 if (command.Command == cmd)
@@ -34,24 +36,29 @@
                                 if (arg.argUser.admin)
                                 {
                                     command.Execute(ref arg, ref chatArgs);
-                                } else
-                                {
-                                    Util.sayUser(arg.argUser.networkPlayer, RustPP.Core.Name, "You need RCON access to be able to use this command.");
                                 }
-                            } else if (Administrator.IsAdmin(arg.argUser.userID))
+                                else
+                                {
+                                    pl.MessageFrom(RustPP.Core.Name, "You need RCON access to be able to use this command.");
+                                }
+                            }
+                            else if (Administrator.IsAdmin(arg.argUser.userID))
                             {
                                 if (Administrator.GetAdmin(arg.argUser.userID).HasPermission(command.AdminFlags))
                                 {
                                     command.Execute(ref arg, ref chatArgs);
-                                } else
-                                {
-                                    Util.sayUser(arg.argUser.networkPlayer, RustPP.Core.Name, string.Format("Only administrators with the {0} permission can use that command.", command.AdminFlags));
                                 }
-                            } else
-                            {
-                                Util.sayUser(arg.argUser.networkPlayer, RustPP.Core.Name, "You don't have access to use this command");
+                                else
+                                {
+                                    pl.MessageFrom(RustPP.Core.Name, string.Format("Only administrators with the {0} permission can use that command.", command.AdminFlags));
+                                }
                             }
-                        } else
+                            else
+                            {
+                                pl.MessageFrom(RustPP.Core.Name, "You don't have access to use this command");
+                            }
+                        }
+                        else
                         {
                             command.Execute(ref arg, ref chatArgs);
                         }

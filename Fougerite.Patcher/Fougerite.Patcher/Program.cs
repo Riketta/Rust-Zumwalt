@@ -1,12 +1,11 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
 
 namespace Fougerite.Patcher
 {
     internal class Program
     {
-        public static string Version = "1.5.2";
+        public const string Version = "1.7.7";
 
         private static void Main(string[] args)
         {

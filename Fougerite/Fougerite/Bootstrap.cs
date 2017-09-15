@@ -1,15 +1,18 @@
+
 namespace Fougerite
 {
     using System;
     using System.IO;
     using UnityEngine;
-    using UnityEngine.Cloud.Analytics;
+    using System.Threading;
 
     public class Bootstrap : Facepunch.MonoBehaviour
     {
-        public static string Version = "1.1.3";
+        public const string Version = "1.5.8";
         public static bool CR = false;
         public static bool BI = false;
+        public static bool TS = false;
+        internal static readonly Thread CurrentThread = Thread.CurrentThread;
 
         public static void AttachBootstrap()
         {
@@ -17,7 +20,7 @@ namespace Fougerite
             {
                 Bootstrap bootstrap = new Bootstrap();
                 new GameObject(bootstrap.GetType().FullName).AddComponent(bootstrap.GetType());
-                Debug.Log(string.Format("<><[ Fougerite v{0} ]><>", Fougerite.Bootstrap.Version));
+                Debug.Log(string.Format("<><[ Fougerite v{0} ]><>", Version));
             }
             catch (Exception ex)
             {
@@ -45,6 +48,10 @@ namespace Fougerite
             if (Fougerite.Config.GetValue("Fougerite", "BanOnInvalidPacket") != null)
             {
                 BI = Fougerite.Config.GetBoolValue("Fougerite", "BanOnInvalidPacket");
+            }
+            if (Fougerite.Config.GetValue("Fougerite", "UseThreadAtServerSave") != null)
+            {
+                TS = Fougerite.Config.GetBoolValue("Fougerite", "UseThreadAtServerSave");
             }
             if (!Fougerite.Config.GetBoolValue("Fougerite", "deployabledecay") && !Fougerite.Config.GetBoolValue("Fougerite", "decay"))
             {
@@ -74,7 +81,9 @@ namespace Fougerite
             if (ApplyOptions()) {
                 ModuleManager.LoadModules();
                 Fougerite.Hooks.ServerStarted();
+                Fougerite.ShutdownCatcher.Hook();
             }
+            SQLiteConnector.GetInstance.Setup();
         }
     }
 }
