@@ -1,3 +1,5 @@
+using System.Linq;
+
 namespace Fougerite
 {
     public class EntityItem
@@ -56,9 +58,9 @@ namespace Fougerite
 		{
 			get
 			{
-				return this.UsesLeft;
+			    return Util.UStackable.Contains(Name) ? 1 : this.UsesLeft;
 			}
-			set
+		    set
 			{
 				this.UsesLeft = value;
 			}

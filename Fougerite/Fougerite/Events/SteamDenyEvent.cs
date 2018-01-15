@@ -5,10 +5,10 @@ namespace Fougerite.Events
 {
     public class SteamDenyEvent
     {
-        private ClientConnection _cc;
-        private NetworkPlayerApproval _approval;
-        private string _strReason;
-        private NetError _errornum;
+        private readonly ClientConnection _cc;
+        private readonly NetworkPlayerApproval _approval;
+        private readonly string _strReason;
+        private readonly NetError _errornum;
         private bool _forceallow = false;
 
         public SteamDenyEvent(ClientConnection cc, NetworkPlayerApproval approval, string strReason, NetError errornum)

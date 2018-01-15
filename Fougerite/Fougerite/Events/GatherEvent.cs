@@ -5,10 +5,10 @@
         private string _item;
         private bool _over;
         private int _qty;
-        private string _type;
-        private ResourceTarget res;
-        private ItemDataBlock dataBlock = null;
-        private ResourceGivePair resourceGivePair = null;
+        private readonly string _type;
+        private readonly ResourceTarget res;
+        private readonly ItemDataBlock dataBlock = null;
+        private readonly ResourceGivePair resourceGivePair = null;
 
         public GatherEvent(ResourceTarget r, ItemDataBlock db, int qty)
         {
