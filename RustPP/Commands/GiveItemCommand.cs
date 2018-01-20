@@ -11,10 +11,15 @@
     {
         public override void Execute(ref ConsoleSystem.Arg Arguments, ref string[] ChatArguments)
         {
+            var pl = Fougerite.Server.Cache[Arguments.argUser.userID];
+            if (pl.CommandCancelList.Contains("give"))
+            {
+                return;
+            }
             string usage = "Give Item usage:  /give  playerName  itemName  (quantity)";
             if (ChatArguments.Length < 2) // minimum arguments = 2
             {
-                Util.sayUser(Arguments.argUser.networkPlayer, Core.Name, usage);
+                pl.MessageFrom(Core.Name, usage);
                 return;
             }
 
@@ -56,7 +61,7 @@
             } 
             else if (ChatArguments.Length < 3) // qty given, but there is < 3 arguments => invalid
             {
-                Util.sayUser(Arguments.argUser.networkPlayer, Core.Name, usage);
+                pl.MessageFrom(Core.Name, usage);
                 return;
             }
 
@@ -105,18 +110,22 @@
                 string recipName = matches.First();
                 string itemName = string.Join(" ", remain.Except(collect).ToArray()).MatchItemName();
                 Arguments.Args = new string[] { recipName, itemName, quantity };
+
+                Fougerite.Player np = Fougerite.Server.GetServer().FindPlayer(recipName);
+                if (np == null)
+                {
+                    pl.MessageFrom(RustPP.Core.Name, "Coudln't find player!");
+                    return;
+                }
                 Logger.LogDebug(string.Format("[GiveItemCommand] quantity={0} item={1} recipient={2}", quantity, itemName, recipName));
-
                 inv.giveplayer(ref Arguments);
-                Util.sayUser(Arguments.argUser.networkPlayer, RustPP.Core.Name, string.Format("{0}  {1} were placed in {2}'s inventory.", quantity, itemName, recipName));
-
-                uLink.NetworkPlayer np = Fougerite.Player.FindByName(recipName).PlayerClient.netPlayer;
-                Util.sayUser(np, RustPP.Core.Name, string.Format("{0} gave you  {1}  {2}", Arguments.argUser.displayName, quantity, itemName));
+                pl.MessageFrom(RustPP.Core.Name, string.Format("{0}  {1} were placed in {2}'s inventory.", quantity, itemName, recipName));
+                np.MessageFrom(RustPP.Core.Name, string.Format("{0} gave you  {1}  {2}", Arguments.argUser.displayName, quantity, itemName));
             }
             else
             {
                 var str = Arguments.ArgsStr.Replace(string.Join(" ", collect.ToArray()), "");
-                Util.sayUser(Arguments.argUser.networkPlayer, Core.Name, string.Format("Unsure about {0}. Please be more specific.", str));
+                pl.MessageFrom(Core.Name, string.Format("Unsure about {0}. Please be more specific.", str));
             }
         }
     }

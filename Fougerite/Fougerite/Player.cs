@@ -1,4 +1,7 @@
 ﻿
+using System.Text.RegularExpressions;
+using System.Threading;
+
 namespace Fougerite
 {
     using Fougerite.Events;
@@ -7,19 +10,24 @@ namespace Fougerite
     using System.Timers;
     using System.Collections.Generic;
     using UnityEngine;
-    using RustPP.Permissions;
 
     public class Player
     {
         private long connectedAt;
-        private long connectedAt2;
+        private readonly long connectedAt2;
         private PlayerInv inv;
         private bool invError;
         private bool justDied;
         private PlayerClient ourPlayer;
-        private ulong uid;
+        private readonly ulong uid;
         private string name;
         private string ipaddr;
+        private readonly List<string> _CommandCancelList;
+        private bool disconnected;
+        private Vector3 _lastpost;
+        internal bool _adminoff = false;
+        internal bool _modoff = false;
+        internal uLink.NetworkPlayer _np;
 
         public Player()
         {
@@ -28,6 +36,7 @@ namespace Fougerite
 
         public Player(PlayerClient client)
         {
+            this.disconnected = false;
             this.justDied = true;
             this.ourPlayer = client;
             this.connectedAt = DateTime.UtcNow.Ticks;
@@ -36,6 +45,18 @@ namespace Fougerite
             this.name = client.netUser.displayName;
             this.ipaddr = client.netPlayer.externalIP;
             this.FixInventoryRef();
+            this._CommandCancelList = new List<string>();
+            this._lastpost = Vector3.zero;
+            this._np = client.netUser.networkPlayer;
+        }
+
+        internal void UpdatePlayerClient(PlayerClient client)
+        {
+            this.ourPlayer = client;
+            if (client.netUser != null)
+            {
+                this._np = client.netUser.networkPlayer;
+            }
         }
 
         public bool IsOnline
@@ -46,10 +67,8 @@ namespace Fougerite
                 {
                     if (this.ourPlayer.netUser != null)
                     {
-                        if (this.ourPlayer.netUser.connected && Fougerite.Server.GetServer().Players.Contains(this))
-                        {
-                            return true;
-                        }
+                        return Fougerite.Server.GetServer().ContainsPlayer(uid) && ourPlayer.netUser.connected && !IsDisconnecting;
+                        //return (!this.ourPlayer.netUser.disposed && this.ourPlayer.netUser.connected && Fougerite.Server.GetServer().Players.Contains(this));
                     }
                 }
                 return false;
@@ -62,10 +81,34 @@ namespace Fougerite
             {
                 if (this.IsOnline)
                 {
-                    return this.PlayerClient.controllable.alive;
+                    return this.Health > 0;
                 }
                 return false;
             }
+        }
+
+        public bool IsDisconnecting
+        {
+            get { return disconnected; }
+            set { disconnected = value; }
+        }
+
+        public Character Character
+        {
+            get
+            {
+                if (this.IsOnline)
+                {
+                    Character c = this.PlayerClient.netUser.playerClient.GetComponent(typeof(Character)) as Character;
+                    return c;
+                }
+                return null;
+            }
+        }
+
+        public uLink.NetworkPlayer NetworkPlayer
+        {
+            get { return this._np; }
         }
 
         public long ConnectedAt
@@ -103,14 +146,48 @@ namespace Fougerite
 
         public void Disconnect()
         {
+            Disconnect(true);
+        }
+
+        public void Disconnect(bool SendNotification = true)
+        {
             if (this.IsOnline)
             {
-                NetUser netUser = this.ourPlayer.netUser;
-                if (netUser.connected && (netUser != null))
+                //Logger.LogError("Same? " + Thread.CurrentThread.ManagedThreadId + " - " +  Bootstrap.CurrentThread.ManagedThreadId);
+                if (Thread.CurrentThread.ManagedThreadId != Util.GetUtil().MainThreadID)
                 {
-                    netUser.Kick(NetError.NoError, true);
+                    //Logger.LogError("Nope, invoking");
+                    Loom.QueueOnMainThread(() =>
+                    {
+                        this.Disconnect(SendNotification);
+                    });
+                    return;
                 }
+                Server.GetServer().RemovePlayer(uid);
+                this.ourPlayer.netUser.Kick(NetError.Facepunch_Kick_RCON, false);
+                IsDisconnecting = true;
             }
+        }
+
+        public void RestrictCommand(string cmd)
+        {
+            if (!CommandCancelList.Contains(cmd))
+            {
+                CommandCancelList.Add(cmd);
+            }
+        }
+
+        public void UnRestrictCommand(string cmd)
+        {
+            if (CommandCancelList.Contains(cmd))
+            {
+                CommandCancelList.Remove(cmd);
+            }
+        }
+
+        public void CleanRestrictedCommands()
+        {
+            CommandCancelList.Clear();
         }
 
         public Fougerite.Player Find(string search)
@@ -140,18 +217,20 @@ namespace Fougerite
 
         public static Fougerite.Player FindByNetworkPlayer(uLink.NetworkPlayer np)
         {
-            var query = from player in Fougerite.Server.GetServer().Players
-                        where player.PlayerClient.netPlayer == np
-                        select player;
-            return query.FirstOrDefault();
+            foreach (var x in Fougerite.Server.GetServer().Players)
+            {
+                if (x.PlayerClient.netPlayer == np) return x;
+            }
+            return null;
         }
 
         public static Fougerite.Player FindByPlayerClient(PlayerClient pc)
         {
-            var query = from player in Fougerite.Server.GetServer().Players
-                        where player.PlayerClient == pc
-                        select player;
-            return query.FirstOrDefault();
+            foreach (var x in Fougerite.Server.GetServer().Players)
+            {
+                if (x.PlayerClient == pc) return x;
+            }
+            return null;
         }
 
         public void FixInventoryRef()
@@ -195,7 +274,40 @@ namespace Fougerite
         {
             if (this.IsOnline)
             {
-                this.SendCommand("chat.add " + Facepunch.Utility.String.QuoteSafe(Fougerite.Server.GetServer().server_message_name) + " " + Facepunch.Utility.String.QuoteSafe(arg));
+                if (string.IsNullOrEmpty(arg) || arg.Length == 0) { return; }
+                string s = Regex.Replace(arg, @"\[/?color\b.*?\]", string.Empty);
+                if (string.IsNullOrEmpty(s) || s.Length == 0) { return; }
+                if (s.Length <= 100)
+                {
+                    this.SendCommand("chat.add " + Facepunch.Utility.String.QuoteSafe(Fougerite.Server.GetServer().server_message_name) + " " + Facepunch.Utility.String.QuoteSafe(arg));
+                }
+                else
+                {
+                    var arr = Regex.Matches(arg, @"\[/?color\b.*?\]")
+                        .Cast<Match>()
+                        .Select(m => m.Value)
+                        .ToArray();
+                    string lastcolor = "";
+                    if (arr.Length > 0)
+                    {
+                        lastcolor = arr[arr.Length - 1];
+                    }
+                    int i = 0;
+                    foreach (var x in Util.GetUtil().SplitInParts(arg, 100))
+                    {
+                        if (i == 1)
+                        {
+                            this.SendCommand("chat.add " + Facepunch.Utility.String.QuoteSafe(Fougerite.Server.GetServer().server_message_name) + " " + Facepunch.Utility.String.QuoteSafe(lastcolor + x));
+                        }
+                        else
+                        {
+                            this.SendCommand("chat.add " + Facepunch.Utility.String.QuoteSafe(Fougerite.Server.GetServer().server_message_name) + " " + Facepunch.Utility.String.QuoteSafe(x));
+                        }
+                        i++;
+                    }
+                    //foreach (var x in Util.GetUtil().SplitInParts(arg, 100))
+                    //    this.SendCommand("chat.add " + lastcolor + Facepunch.Utility.String.QuoteSafe(Fougerite.Server.GetServer().server_message_name) + " " + Facepunch.Utility.String.QuoteSafe(x));
+                }
             }
         }
 
@@ -203,7 +315,38 @@ namespace Fougerite
         {
             if (this.IsOnline)
             {
-                this.SendCommand("chat.add " + Facepunch.Utility.String.QuoteSafe(playername) + " " + Facepunch.Utility.String.QuoteSafe(arg));
+                if (string.IsNullOrEmpty(arg) || arg.Length == 0) { return; }
+                string s = Regex.Replace(arg, @"\[/?color\b.*?\]", string.Empty);
+                if (string.IsNullOrEmpty(s) || s.Length == 0) { return; }
+                if (s.Length <= 100)
+                {
+                    this.SendCommand("chat.add " + Facepunch.Utility.String.QuoteSafe(playername) + " " + Facepunch.Utility.String.QuoteSafe(arg));
+                }
+                else
+                {
+                    var arr = Regex.Matches(arg, @"\[/?color\b.*?\]")
+                        .Cast<Match>()
+                        .Select(m => m.Value)
+                        .ToArray();
+                    string lastcolor = "";
+                    if (arr.Length > 0)
+                    {
+                        lastcolor = arr[arr.Length - 1];
+                    }
+                    int i = 0;
+                    foreach (var x in Util.GetUtil().SplitInParts(arg, 100))
+                    {
+                        if (i == 1)
+                        {
+                            this.SendCommand("chat.add " + Facepunch.Utility.String.QuoteSafe(playername) + " " + Facepunch.Utility.String.QuoteSafe(lastcolor + x));
+                        }
+                        else
+                        {
+                            this.SendCommand("chat.add " + Facepunch.Utility.String.QuoteSafe(playername) + " " + Facepunch.Utility.String.QuoteSafe(x));
+                        }
+                        i++;
+                    }
+                }
             }
         }
 
@@ -231,51 +374,50 @@ namespace Fougerite
             }
         }
 
-        public bool TeleportTo(Fougerite.Player p)
-        {
-            if (this.IsOnline)
-            {
-                return this.TeleportTo(p, 1.5f);
-            }
-
-            return false;
-        }
-
-        public bool TeleportTo(Fougerite.Player p, float distance = 1.5f)
+        public bool TeleportTo(Fougerite.Player p, float distance = 1.5f, bool callhook = true)
         {
             if (this.IsOnline)
             {
                 if (this == p) // lol
                     return false;
 
-                Transform transform = p.PlayerClient.controllable.transform;                                            // get the target player's transform
-                Vector3 target = transform.TransformPoint(new Vector3(0f, 0f, (this.Admin ? -distance : distance)));    // rcon admin teleports behind target player
-                return this.SafeTeleportTo(target);
+                try
+                {
+                    Transform transform = p.PlayerClient.controllable.transform; // get the target player's transform
+                    Vector3 target = transform.TransformPoint(new Vector3(0f, 0f, (this.Admin ? -distance : distance)));
+                    // rcon admin teleports behind target player
+                    return this.SafeTeleportTo(target, callhook);
+                }
+                catch
+                {
+                    if (p.Location == Vector3.zero) return false;
+                    return TeleportTo(p.Location, callhook);
+                }
             }
             return false;
         }
 
-        public bool SafeTeleportTo(float x, float y, float z)
+        public bool SafeTeleportTo(float x, float y, float z, bool callhook = true)
         {
             if (this.IsOnline)
             {
-                return this.SafeTeleportTo(new Vector3(x, y, z));
+                return this.SafeTeleportTo(new Vector3(x, y, z), callhook);
             }
 
             return false;
         }
 
-        public bool SafeTeleportTo(float x, float z)
+        public bool SafeTeleportTo(float x, float z, bool callhook = true)
         {
             if (this.IsOnline)
             {
-                return this.SafeTeleportTo(new Vector3(x, 0f, z));
+                return this.SafeTeleportTo(new Vector3(x, 0f, z), callhook);
             }
 
             return false;
         }
 
-        public bool SafeTeleportTo(Vector3 target)
+        public bool SafeTeleportTo(Vector3 target, bool callhook = true, bool dosafechecks = true)
         {
             if (this.IsOnline)
             {
@@ -298,7 +440,7 @@ namespace Fougerite
                 {
                     if (Physics.Raycast(target, Vector3.down, out hit))
                     {
-                        if (hit.collider.name == "HB Hit")
+                        if (hit.collider.name == "HB Hit" && dosafechecks)
                         {
                             // this.Message("There you are.");
                             return false;
@@ -312,18 +454,18 @@ namespace Fougerite
 
                     if (distance < maxSafeDistance)
                     {
-                        return this.TeleportTo(target);
+                        return this.TeleportTo(target, callhook);
                     }
                     else
                     {
-                        if (this.TeleportTo(terrain + bump * 2))
+                        if (this.TeleportTo(terrain + bump * 2, callhook))
                         {
                             System.Timers.Timer timer = new System.Timers.Timer();
                             timer.Interval = ms;
                             timer.AutoReset = false;
                             timer.Elapsed += delegate(object x, ElapsedEventArgs y)
                             {
-                                this.TeleportTo(target);
+                                this.TeleportTo(target, callhook);
                             };
                             timer.Start();
                             return true;
@@ -341,7 +483,7 @@ namespace Fougerite
 
                     if (Physics.Raycast(terrain + Vector3.up * 300f, Vector3.down, out hit))
                     {
-                        if (hit.collider.name == "HB Hit")
+                        if (hit.collider.name == "HB Hit" && dosafechecks)
                         {
                             this.Message("There you are.");
                             return false;
@@ -349,7 +491,7 @@ namespace Fougerite
                         Vector3 worldPos = target - Terrain.activeTerrain.transform.position;
                         Vector3 tnPos = new Vector3(Mathf.InverseLerp(0, Terrain.activeTerrain.terrainData.size.x, worldPos.x), 0, Mathf.InverseLerp(0, Terrain.activeTerrain.terrainData.size.z, worldPos.z));
                         float gradient = Terrain.activeTerrain.terrainData.GetSteepness(tnPos.x, tnPos.z);
-                        if (gradient > 50f)
+                        if (gradient > 50f && dosafechecks)
                         {
                             this.Message("It's too steep there.");
                             return false;
@@ -360,7 +502,7 @@ namespace Fougerite
                     Logger.LogDebug(string.Format("[{0}] player={1}({2}) from={3} to={4} distance={5} terrain={6}", me, this.Name, this.GameID,
                         this.Location.ToString(), target.ToString(), distance.ToString("F2"), terrain.ToString()));
 
-                    return this.TeleportTo(target);
+                    return this.TeleportTo(target, callhook);
                 }
                 else
                 {
@@ -373,29 +515,72 @@ namespace Fougerite
             return false;
         }
 
-        public bool TeleportTo(float x, float y, float z)
+        public Vector3 TeleportToTheClosestSpawnpoint(Vector3 target, bool callhook = true)
+        {
+            Vector3 pos;
+            Quaternion qt;
+            SpawnManager.GetClosestSpawn(target, out pos, out qt);
+            if (target != Vector3.zero)
+            {
+                TeleportTo(pos, callhook);
+            }
+            return pos;
+        }
+
+        public bool TeleportTo(float x, float y, float z, bool callhook = true)
         {
             if (this.IsOnline)
             {
-                return this.TeleportTo(new Vector3(x, y, z));
+                return this.TeleportTo(new Vector3(x, y, z), callhook);
             }
             return false;
         }
 
-        public bool TeleportTo(Vector3 target)
+        public bool TeleportTo(Vector3 target, bool callhook = true)
         {
             if (this.IsOnline)
             {
-                Fougerite.Hooks.PlayerTeleport(this, this.Location, target);
+                try
+                {
+                    if (callhook) {Fougerite.Hooks.PlayerTeleport(this, this.Location, target);}
+                }catch { }
+
                 return RustServerManagement.Get().TeleportPlayerToWorld(this.ourPlayer.netPlayer, target);
             }
             return false;
+        }
+
+        public void ForceAdminOff(bool state)
+        {
+            if (Fougerite.Server.Cache[UID] != null)
+            {
+                Fougerite.Server.Cache[UID]._adminoff = state;
+            }
+            if (state && this.ourPlayer.netUser.admin)
+            {
+                ourPlayer.netUser.SetAdmin(false);
+                ourPlayer.netUser.admin = false;
+            }
+            _adminoff = state;
+        }
+
+        public void ForceModeratorOff(bool state)
+        {
+            if (Fougerite.Server.Cache[UID] != null)
+            {
+                Fougerite.Server.Cache[UID]._modoff = state;
+            }
+            _modoff = state;
         }
 
         public bool Admin
         {
             get
             {
+                if (_adminoff)
+                {
+                    return false;
+                }
                 if (this.IsOnline)
                 {
                     return this.ourPlayer.netUser.admin;
@@ -409,24 +594,18 @@ namespace Fougerite
         {
             get
             {
-                if (this.IsOnline)
+                if (_modoff)
                 {
-                    if (Fougerite.Server.GetServer().HasRustPP)
-                    {
-                        if (Fougerite.Server.GetServer().GetRustPPAPI().IsAdmin(this.UID))
-                        {
-                            if (Fougerite.Server.GetServer().GetRustPPAPI().GetAdmin(this.UID).HasPermission("Moderator"))
-                            {
-                                return true;
-                            }
-                        }
-                    }
-                    if (DataStore.GetInstance().ContainsKey("Moderators", SteamID))
-                    {
-                        return true;
-                    }
+                    return false;
                 }
-                return false;
+               if (Fougerite.Server.GetServer().HasRustPP)
+               {
+                    if (Fougerite.Server.GetServer().GetRustPPAPI().IsAdmin(this.UID))
+                    {
+                        return Fougerite.Server.GetServer().GetRustPPAPI().GetAdmin(this.UID).HasPermission("Moderator");
+                    }
+               }
+               return DataStore.GetInstance().ContainsKey("Moderators", SteamID);
             }
         }
 
@@ -452,6 +631,11 @@ namespace Fougerite
             {
                 return this.uid.ToString();
             }
+        }
+
+        public List<string> CommandCancelList
+        {
+            get { return this._CommandCancelList; }
         }
 
         public bool HasBlueprint(BlueprintDataBlock dataBlock)
@@ -556,9 +740,21 @@ namespace Fougerite
             {
                 if (this.IsOnline && this.IsAlive)
                 {
-                    return this.ourPlayer.controllable.GetComponent<HumanBodyTakeDamage>().IsBleeding();
+                    return HumanBodyTakeDmg.IsBleeding();
                 }
                 return false;
+            }
+        }
+
+        public HumanBodyTakeDamage HumanBodyTakeDmg
+        {
+            get
+            {
+                if (this.IsOnline && this.IsAlive)
+                {
+                    return this.ourPlayer.controllable.GetComponent<HumanBodyTakeDamage>();
+                }
+                return null;
             }
         }
 
@@ -652,7 +848,7 @@ namespace Fougerite
             {
                 if (this.IsOnline && this.IsAlive)
                 {
-                    return this.PlayerClient.controllable.GetComponent<HumanBodyTakeDamage>()._bleedingLevel;
+                    return HumanBodyTakeDmg._bleedingLevel;
                 }
                 return 0f;
             }
@@ -749,6 +945,18 @@ namespace Fougerite
             }
         }
 
+        public Vector3 DisconnectLocation
+        {
+            get
+            {
+                return this._lastpost;
+            }
+            set
+            {
+                this._lastpost = value;
+            }
+        }
+
         public Vector3 Location
         {
             get
@@ -779,13 +987,8 @@ namespace Fougerite
                 if (this.IsOnline)
                 {
                     this.name = value;
-                    if (this.IsOnline)
-                    {
-                        RustProto.User u = this.ourPlayer.netUser.user;
-                        //Util.GetUtil().SetInstanceField(typeof(RustProto.User), u, "displayname_", value); // displayName
-                        this.ourPlayer.netUser.user.displayname_ = value;
-                        this.ourPlayer.userName = value; // displayName
-                    }
+                    this.ourPlayer.netUser.user.displayname_ = value;
+                    this.ourPlayer.userName = value; // displayName
                 }
             }
         }
@@ -804,7 +1007,7 @@ namespace Fougerite
                             where deployable.ownerID == this.uid
                             select new Sleeper(deployable);
 
-                return query.FirstOrDefault();
+                return query.ToList().FirstOrDefault();
             }
         }
 
@@ -816,7 +1019,7 @@ namespace Fougerite
                 {
                     return this.Structures.Any(e => (e.Object as StructureMaster).containedBounds.Contains(this.Location));
                 }
-                else if (this.Sleeper != null)
+                if (this.Sleeper != null)
                 {
                     return this.Structures.Any(e => (e.Object as StructureMaster).containedBounds.Contains(this.Sleeper.Location));
                 }
@@ -848,15 +1051,23 @@ namespace Fougerite
             }
         }
 
-        public long TimeOnline
+        public FallDamage FallDamage
         {
             get
             {
                 if (this.IsOnline)
                 {
-                    return ((DateTime.UtcNow.Ticks - this.connectedAt)/0x2710L);
+                    return this.ourPlayer.controllable.GetComponent<FallDamage>();
                 }
-                return 0L;
+                return null;
+            }
+        }
+
+        public long TimeOnline
+        {
+            get
+            {
+                return ((DateTime.UtcNow.Ticks - this.connectedAt)/0x2710L);
             }
         }
 
@@ -972,6 +1183,110 @@ namespace Fougerite
                             where this.UID == (f.GetComponent<DeployableObject>() as DeployableObject).ownerID
                             select f;
                 return QueryToEntity<FireBarrel>(query);
+            }
+        }
+
+        public bool IsOnGround
+        {
+            get
+            {
+                Vector3 lastPosition = Location;
+                bool cachedBoolean;
+                RaycastHit cachedRaycast;
+                Facepunch.MeshBatch.MeshBatchInstance cachedhitInstance;
+
+                if (lastPosition == Vector3.zero) return true;
+                if (!Facepunch.MeshBatch.MeshBatchPhysics.Raycast(lastPosition + new Vector3(0f, -1.15f, 0f), new Vector3(0f, -1f, 0f),
+                        out cachedRaycast, out cachedBoolean, out cachedhitInstance))
+                {
+                    return true;
+                }
+                if (cachedhitInstance == null)
+                {
+                    return true;
+                }
+                if (string.IsNullOrEmpty(cachedhitInstance.graphicalModel.ToString()))
+                {
+                    return true;
+                }
+                return false;
+            }
+        }
+
+        public bool IsNearStructure
+        {
+            get
+            {
+                var x = Physics.OverlapSphere(Location, 3.5f);
+                return x.Any(hit => hit.collider.gameObject.name.Contains("__MESHBATCH_PHYSICAL_OUTPUT"));
+            }
+        }
+
+        public bool IsOnDeployable
+        {
+            get
+            {
+                Vector3 lastPosition = Location;
+                bool cachedBoolean;
+                RaycastHit cachedRaycast;
+                Facepunch.MeshBatch.MeshBatchInstance cachedhitInstance;
+                DeployableObject cachedDeployable;
+                if (lastPosition == Vector3.zero) return false;
+                if (!Facepunch.MeshBatch.MeshBatchPhysics.Raycast(lastPosition + new Vector3(0f, -1.15f, 0f), 
+                    new Vector3(0f, -1f, 0f), out cachedRaycast, out cachedBoolean, out cachedhitInstance))
+                {
+                    return false;
+                }
+                if (cachedhitInstance == null)
+                {
+                    cachedDeployable = cachedRaycast.collider.GetComponent<DeployableObject>();
+                    if (cachedDeployable != null)
+                    {
+                        return true;
+                    }
+                    return false;
+                }
+                if (string.IsNullOrEmpty(cachedhitInstance.graphicalModel.ToString()))
+                {
+                    return false;
+                }
+                return false;
+            }
+        }
+
+        public bool IsInShelter
+        {
+            get
+            {
+                Vector3 lastPosition = Location;
+                bool cachedBoolean;
+                RaycastHit cachedRaycast;
+                Facepunch.MeshBatch.MeshBatchInstance cachedhitInstance;
+                if (lastPosition == Vector3.zero) return false;
+                if (!Facepunch.MeshBatch.MeshBatchPhysics.Raycast(lastPosition + new Vector3(0f, -1.15f, 0f), new Vector3(0f, -1f, 0f), 
+                    out cachedRaycast, out cachedBoolean, out cachedhitInstance))
+                {
+                    return false;
+                }
+                if (cachedhitInstance == null)
+                {
+                    var cachedsack = "Wood_Shelter(Clone)";
+                    var cachedLootableObject = cachedRaycast.collider.gameObject.name;
+                    if (cachedLootableObject == cachedsack)
+                    {
+                        return true;
+                    }
+                    return false;
+                }
+                var cachedsack2 = "Wood_Shelter(Clone)";
+                if (cachedhitInstance.graphicalModel.ToString() == cachedsack2)
+                    return true;
+                if (cachedhitInstance.graphicalModel.ToString().Contains(cachedsack2)) return true;
+                if (string.IsNullOrEmpty(cachedhitInstance.graphicalModel.ToString()))
+                {
+                    return false;
+                }
+                return false;
             }
         }
     }

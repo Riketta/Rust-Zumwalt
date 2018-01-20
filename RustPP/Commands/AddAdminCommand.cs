@@ -1,4 +1,6 @@
-﻿namespace RustPP.Commands
+﻿using System.Security;
+
+namespace RustPP.Commands
 {
     using Fougerite;
     using RustPP.Permissions;
@@ -10,70 +12,82 @@
     {
         public override void Execute(ref ConsoleSystem.Arg Arguments, ref string[] ChatArguments)
         {
+            var pl = Fougerite.Server.Cache[Arguments.argUser.userID];
             string playerName = string.Join(" ", ChatArguments).Trim(new char[] { ' ', '"' });
             if (playerName == string.Empty)
             {
-                Util.sayUser(Arguments.argUser.networkPlayer, Core.Name, "AddAdmin Usage:  /addadmin playerName");
+                pl.MessageFrom(Core.Name, "AddAdmin Usage:  /addadmin playerName");
                 return;
             }
             List<Administrator> list = new List<Administrator>();
             list.Add(new Administrator(0, "Cancel"));
+            Fougerite.Player fplayer = Fougerite.Server.GetServer().FindPlayer(playerName);
+            if (fplayer != null)
+            {
+                NewAdmin(new Administrator(fplayer.UID, fplayer.Name), pl);
+                return;
+            }
             foreach (KeyValuePair<ulong, string> entry in Core.userCache)
             {
                 if (entry.Value.Equals(playerName, StringComparison.OrdinalIgnoreCase))
                 {
-                    NewAdmin(new Administrator(entry.Key, entry.Value), Arguments.argUser);
+                    NewAdmin(new Administrator(entry.Key, entry.Value), pl);
                     return;
-                } else if (entry.Value.ToUpperInvariant().Contains(playerName.ToUpperInvariant()))
+                }
+                if (entry.Value.ToUpperInvariant().Contains(playerName.ToUpperInvariant()))
                     list.Add(new Administrator(entry.Key, entry.Value));
             }
             if (list.Count == 1)
             {
-                foreach (PlayerClient client in PlayerClient.All)
+                foreach (Fougerite.Player client in Fougerite.Server.GetServer().Players)
                 {
-                    if (client.netUser.displayName.Equals(playerName, StringComparison.OrdinalIgnoreCase))
+                    if (client.Name.Equals(playerName, StringComparison.OrdinalIgnoreCase))
                     {                
-                        NewAdmin(new Administrator(client.netUser.userID, client.netUser.displayName), Arguments.argUser);
+                        NewAdmin(new Administrator(client.UID, SecurityElement.Escape(client.Name)), pl);
                         return;
-                    } else if (client.netUser.displayName.ToUpperInvariant().Contains(playerName.ToUpperInvariant()))
-                        list.Add(new Administrator(client.netUser.userID, client.netUser.displayName));
+                    }
+                    if (client.Name.ToUpperInvariant().Contains(playerName.ToUpperInvariant()))
+                        list.Add(new Administrator(client.UID, SecurityElement.Escape(client.Name)));
                 }
             }
             if (list.Count == 1)
             {
-                Util.sayUser(Arguments.argUser.networkPlayer, Core.Name, "No player matches the name: " + playerName);
+                pl.MessageFrom(Core.Name, "No player matches the name: " + playerName);
                 return;
             }
-            Util.sayUser(Arguments.argUser.networkPlayer, Core.Name, string.Format("{0}  player{1} {2}: ", ((list.Count - 1)).ToString(), (((list.Count - 1) > 1) ? "s match" : " matches"), playerName));
+            pl.MessageFrom(Core.Name, string.Format("{0}  player{1} {2}: ", ((list.Count - 1)).ToString(), (((list.Count - 1) > 1) ? "s match" : " matches"), playerName));
             for (int i = 1; i < list.Count; i++)
             {
-                Util.sayUser(Arguments.argUser.networkPlayer, Core.Name, string.Format("{0} - {1}", i, list[i].DisplayName));
+                pl.MessageFrom(Core.Name, string.Format("{0} - {1}", i, list[i].DisplayName));
             }
-            Util.sayUser(Arguments.argUser.networkPlayer, Core.Name, "0 - Cancel");
-            Util.sayUser(Arguments.argUser.networkPlayer, Core.Name, "Please enter the number matching the player to become administrator.");
+            pl.MessageFrom(Core.Name, "0 - Cancel");
+            pl.MessageFrom(Core.Name, "Please enter the number matching the player to become administrator.");
             Core.adminAddWaitList[Arguments.argUser.userID] = list;
         }
 
         public void PartialNameNewAdmin(ref ConsoleSystem.Arg Arguments, int id)
         {
+            var pl = Fougerite.Server.Cache[Arguments.argUser.userID];
             if (id == 0)
             {
-                Util.sayUser(Arguments.argUser.networkPlayer, Core.Name, "Cancelled!");
+                pl.MessageFrom(Core.Name, "Cancelled!");
                 return;
             }
             List<Administrator> list = (List<Administrator>)Core.adminAddWaitList[Arguments.argUser.userID];
-            NewAdmin(list[id], Arguments.argUser);
+            NewAdmin(list[id], pl);
         }
 
-        public void NewAdmin(Administrator newAdmin, NetUser myAdmin)
+        public void NewAdmin(Administrator newAdmin, Fougerite.Player player)
         {
-            if (newAdmin.UserID == myAdmin.userID)
+            if (newAdmin.UserID == player.UID)
             {
-                Util.sayUser(myAdmin.networkPlayer, Core.Name, "Seriously? You are already an admin...");
-            } else if (Administrator.IsAdmin(newAdmin.UserID))
+                player.MessageFrom(Core.Name, "Seriously? You are already an admin...");
+            }
+            else if (Administrator.IsAdmin(newAdmin.UserID))
             {
-                Util.sayUser(myAdmin.networkPlayer, Core.Name, newAdmin.DisplayName + " is already an administrator.");
-            } else
+                player.MessageFrom(Core.Name, newAdmin.DisplayName + " is already an administrator.");
+            }
+            else
             {
                 string flagstr = Core.config.GetSetting("Settings", "default_admin_flags");
 
@@ -83,7 +97,7 @@
                     newAdmin.Flags = flags;
                 }
                 Administrator.AddAdmin(newAdmin);
-                Administrator.NotifyAdmins(string.Format("{0} has been made an administrator by {1}.", newAdmin.DisplayName, myAdmin.displayName));
+                Administrator.NotifyAdmins(string.Format("{0} has been made an administrator by {1}.", SecurityElement.Escape(newAdmin.DisplayName), player.Name));
             }
         }
     }

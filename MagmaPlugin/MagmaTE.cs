@@ -1,9 +1,12 @@
-﻿using System;
-using System.Collections.Generic;
+﻿
 using System.Timers;
+using Fougerite;
 
-namespace MagmaPlugin
+namespace MagmaModule
 {
+    using System;
+    using System.Collections.Generic;
+
     public class MagmaTE
     {
         private Dictionary<string, object> _args;
@@ -20,26 +23,26 @@ namespace MagmaPlugin
 			this._name = name;
 			this._timer = new System.Timers.Timer();
 			this._timer.Interval = interval;
-			this._timer.Elapsed += new ElapsedEventHandler(this._timer_Elapsed);
+			this._timer.Elapsed += this._timer_Elapsed;
 			this._elapsedCount = 0;
 		}
 
         public MagmaTE(string name, double interval, Dictionary<string, object> args)
 			: this(name, interval) {
 			this.Args = args;
-		}
+        }
 
 		private void _timer_Elapsed(object sender, ElapsedEventArgs e) {
-			if (this.OnFire != null) {
-				this.OnFire(this);
+            if (this.OnFire != null) {
+                this.OnFire(this);
 			}
-
-			this._elapsedCount += 1;
+            this._elapsedCount += 1;
 			this.lastTick = DateTime.UtcNow.Ticks;
 		}
 
 		public void Start() {
-			this._timer.Start();
+            this._timer.Elapsed += this._timer_Elapsed;
+            this._timer.Start();
 			this.lastTick = DateTime.UtcNow.Ticks;
 		}
 

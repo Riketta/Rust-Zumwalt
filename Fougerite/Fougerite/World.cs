@@ -11,6 +11,13 @@
     {
         private static World world;
         public Dictionary<string, Zone3D> zones;
+        public readonly Dictionary<string, double> cache = new Dictionary<string, double>();
+        private List<Entity> deployables = new List<Entity>();
+        private List<Entity> doors = new List<Entity>();
+        private List<Entity> structurems = new List<Entity>();
+        private List<Entity> structures = new List<Entity>();
+        public int CacheUpdateTime = 120;
+
 
         public World()
         {
@@ -33,17 +40,16 @@
 
         public void Airdrop(int rep)
         {
-            System.Random rand = new System.Random();
-            Vector3 rpog;
             for (int i = 0; i < rep; i++)
             {
-                RandomPointOnGround(ref rand, out rpog);
+                Vector3 rpog = SupplyDropZone.GetRandomTargetPos();
                 SupplyDropZone.CallAirDropAt(rpog);
             }
         }
 
-        private static void RandomPointOnGround(ref System.Random rand, out Vector3 onground)
+        /*private void RandomPointOnGround(ref System.Random rand, out Vector3 onground)
         {
+            onground = SupplyDropZone.GetRandomTargetPos();
             float z = (float)rand.Next(-6100, -1000);
             float x = (float)3600;
             if (z < -4900 && z >= -6100)
@@ -60,30 +66,35 @@
             }
             float y = Terrain.activeTerrain.SampleHeight(new Vector3(x, 500, z));
             onground = new Vector3(x, y, z);
-        }
+        }*/
 
+        [Obsolete("AirdropAt is deprecated, please use AirdropAtOriginal instead.")]
         public void AirdropAt(float x, float y, float z)
         {
             this.AirdropAt(x, y, z, 1);
         }
 
+        [Obsolete("AirdropAt is deprecated, please use AirdropAtOriginal instead.")]
         public void AirdropAt(float x, float y, float z, int rep)
         {
             Vector3 target = new Vector3(x, y, z);
             this.AirdropAt(target, rep);
         }
 
+        [Obsolete("AirdropAt is deprecated, please use AirdropAtOriginal instead.")]
         public void AirdropAtPlayer(Fougerite.Player p)
         {
             this.AirdropAt(p.X, p.Y, p.Z, 1);
         }
 
+        [Obsolete("AirdropAt is deprecated, please use AirdropAtOriginal instead.")]
         public void AirdropAtPlayer(Fougerite.Player p, int rep)
         {
             this.AirdropAt(p.X, p.Y, p.Z, rep);
         }
 
-        public void AirdropAt(Vector3 target, int rep)
+        [Obsolete("AirdropAt is deprecated, please use AirdropAtOriginal instead.")]
+        public void AirdropAt(Vector3 target, int rep = 1)
         {
             Vector3 original = target;
             System.Random rand = new System.Random();
@@ -99,8 +110,24 @@
                 }
                 target.y = original.y + rand.Next(-5, 20) * 20;
                 SupplyDropZone.CallAirDropAt(target);
+                Hooks.Airdrop(target);
                 Jitter(ref target);
             }
+        }
+
+        public void AirdropAtOriginal(float x, float y, float z, int rep = 1)
+        {
+            this.AirdropAtOriginal(new Vector3(x, y, z), rep);
+        }
+
+        public void AirdropAtOriginal(Fougerite.Player p, int rep = 1)
+        {
+            this.AirdropAtOriginal(p.Location, rep);
+        }
+
+        public void AirdropAtOriginal(Vector3 target, int rep = 1)
+        {
+            SupplyDropZone.CallAirDropAt(target);
         }
 
         private static void Jitter(ref Vector3 target)
@@ -254,10 +281,12 @@
                 {
                     DeployableItemDataBlock block2 = block as DeployableItemDataBlock;
                     File.AppendAllText(Util.GetAbsoluteFilePath("Prefabs.txt"), "[\"" + block2.ObjectToPlace.name + "\", \"" + block2.DeployableObjectPrefabName + "\"],\n");
-                } else if (block is StructureComponentDataBlock)
+                }
+                else if (block is StructureComponentDataBlock)
                 {
                     StructureComponentDataBlock block3 = block as StructureComponentDataBlock;
-                    File.AppendAllText(Util.GetAbsoluteFilePath("Prefabs.txt"), "[\"" + block3.structureToPlacePrefab.name + "\", \"" + block3.structureToPlaceName + "\"],\n");
+                    File.AppendAllText(Util.GetAbsoluteFilePath("Prefabs.txt"),
+                        "[\"" + block3.structureToPlacePrefab.name + "\", \"" + block3.structureToPlaceName + "\"],\n");
                 }
             }
         }
@@ -309,6 +338,18 @@
                         {
                             obj2 = new Entity(component);
                         } 
+                        else if (obj3.GetComponent<LootableObject>())
+                        {
+                            obj2 = new Entity(obj3.GetComponent<LootableObject>());
+                        }
+                        else if (obj3.GetComponent<SupplyCrate>())
+                        {
+                            obj2 = new Entity(obj3.GetComponent<SupplyCrate>());
+                        }
+                        else if (obj3.GetComponent<ResourceTarget>())
+                        {
+                            obj2 = new Entity(obj3.GetComponent<ResourceTarget>());
+                        }
                         else
                         {
                             DeployableObject obj4 = obj3.GetComponent<DeployableObject>();
@@ -326,7 +367,7 @@
             }
             catch (Exception e)
             {
-                Logger.LogDebug(e.ToString());
+                Logger.LogDebug("Spawn Method error: " + e.ToString());
             }
             return obj2;
         }
@@ -362,13 +403,181 @@
             set { env.daylength = value; }
         }
 
-        public List<Entity> StructureMasters
+        public IEnumerable<Entity> BasicDoors(bool forceupdate = false)
+        {
+            try
+            {
+                if (Util.GetUtil().CurrentWorkingThreadID != Util.GetUtil().MainThreadID)
+                {
+                    Logger.LogWarning("[Fougerite BasicDoors] Some plugin is calling World.BasicDoors in a Thread/Timer. This is dangerous, and may cause crashes.");
+                }
+                if (!this.cache.ContainsKey("BasicDoor") || forceupdate || this.doors.Count == 0)
+                {
+                    this.cache["BasicDoor"] = TimeSpan.FromTicks(DateTime.Now.Ticks).TotalSeconds;
+                    IEnumerable<Entity> source = from s in UnityEngine.Object.FindObjectsOfType<BasicDoor>()
+                        select new Entity(s);
+                    this.doors = source.ToList();
+                }
+                else if (this.cache.ContainsKey("BasicDoor"))
+                {
+                    double num = TimeSpan.FromTicks(DateTime.Now.Ticks).TotalSeconds - this.cache["BasicDoor"];
+                    if (num >= this.CacheUpdateTime || double.IsNaN(num) || num <= 0)
+                    {
+                        this.cache["BasicDoor"] = TimeSpan.FromTicks(DateTime.Now.Ticks).TotalSeconds;
+                        IEnumerable<Entity> source = from s in UnityEngine.Object.FindObjectsOfType<BasicDoor>()
+                            select new Entity(s);
+                        this.doors = source.ToList();
+                    }
+                }
+            }
+            catch
+            {
+                this.cache["BasicDoor"] = TimeSpan.FromTicks(DateTime.Now.Ticks).TotalSeconds;
+                IEnumerable<Entity> source = from s in UnityEngine.Object.FindObjectsOfType<BasicDoor>()
+                                             select new Entity(s);
+                this.doors = source.ToList();
+            }
+            return this.doors;
+        }
+
+        public IEnumerable<Entity> DeployableObjects(bool forceupdate = false)
+        {
+            try
+            {
+                if (Util.GetUtil().CurrentWorkingThreadID != Util.GetUtil().MainThreadID)
+                {
+                    Logger.LogWarning("[Fougerite DeployableObjects] Some plugin is calling World.DeployableObjects in a Thread/Timer. This is dangerous, and may cause crashes.");
+                }
+                if (!this.cache.ContainsKey("DeployableObject") || forceupdate || this.deployables.Count == 0)
+                {
+                    this.cache["DeployableObject"] = TimeSpan.FromTicks(DateTime.Now.Ticks).TotalSeconds;
+                    IEnumerable<Entity> source = from s in UnityEngine.Object.FindObjectsOfType<DeployableObject>()
+                        select new Entity(s);
+                    this.deployables = source.ToList();
+                }
+                else if (this.cache.ContainsKey("DeployableObject"))
+                {
+                    double num = TimeSpan.FromTicks(DateTime.Now.Ticks).TotalSeconds - this.cache["DeployableObject"];
+                    if (num >= this.CacheUpdateTime || double.IsNaN(num) || num <= 0)
+                    {
+                        this.cache["DeployableObject"] = TimeSpan.FromTicks(DateTime.Now.Ticks).TotalSeconds;
+                        IEnumerable<Entity> source = from s in UnityEngine.Object.FindObjectsOfType<DeployableObject>()
+                            select new Entity(s);
+                        this.deployables = source.ToList();
+                    }
+                }
+            }
+            catch
+            {
+                this.cache["DeployableObject"] = TimeSpan.FromTicks(DateTime.Now.Ticks).TotalSeconds;
+                IEnumerable<Entity> source = from s in UnityEngine.Object.FindObjectsOfType<DeployableObject>()
+                                             select new Entity(s);
+                this.deployables = source.ToList();
+            }
+            return this.deployables;
+        }
+
+        public IEnumerable<Entity> StructureComponents(bool forceupdate = false)
+        {
+            try
+            {
+                if (Util.GetUtil().CurrentWorkingThreadID != Util.GetUtil().MainThreadID)
+                {
+                    Logger.LogWarning("[Fougerite StructureComponents] Some plugin is calling World.StructureComponents in a Thread/Timer. This is dangerous, and may cause crashes.");
+                }
+                if (!this.cache.ContainsKey("StructureComponent") || forceupdate || this.structures.Count == 0)
+                {
+                    this.cache["StructureComponent"] = TimeSpan.FromTicks(DateTime.Now.Ticks).TotalSeconds;
+                    IEnumerable<Entity> source = from s in UnityEngine.Object.FindObjectsOfType<StructureComponent>()
+                        select new Entity(s);
+                    this.structures = source.ToList();
+                }
+                else if (this.cache.ContainsKey("StructureComponent"))
+                {
+                    double num = TimeSpan.FromTicks(DateTime.Now.Ticks).TotalSeconds - this.cache["StructureComponent"];
+                    if (num >= this.CacheUpdateTime || double.IsNaN(num) || num <= 0)
+                    {
+                        this.cache["StructureComponent"] = TimeSpan.FromTicks(DateTime.Now.Ticks).TotalSeconds;
+                        IEnumerable<Entity> source =
+                            from s in UnityEngine.Object.FindObjectsOfType<StructureComponent>()
+                            select new Entity(s);
+                        this.structures = source.ToList();
+                    }
+                }
+            }
+            catch
+            {
+                this.cache["StructureComponent"] = TimeSpan.FromTicks(DateTime.Now.Ticks).TotalSeconds;
+                IEnumerable<Entity> source =
+                    from s in UnityEngine.Object.FindObjectsOfType<StructureComponent>()
+                    select new Entity(s);
+                this.structures = source.ToList();
+            }
+            return this.structures;
+        }
+
+        public IEnumerable<Entity> StructureMasters(bool forceupdate = false)
+        {
+            try
+            {
+                if (Util.GetUtil().CurrentWorkingThreadID != Util.GetUtil().MainThreadID)
+                {
+                    Logger.LogWarning("[Fougerite StructureMasters] Some plugin is calling World.StructureMasters in a Thread/Timer. This is dangerous, and may cause crashes.");
+                }
+                if (!this.cache.ContainsKey("StructureMaster") || forceupdate || this.structurems.Count == 0)
+                {
+                    this.cache["StructureMaster"] = TimeSpan.FromTicks(DateTime.Now.Ticks).TotalSeconds;
+                    IEnumerable<Entity> source = from s in StructureMaster.AllStructures
+                        select new Entity(s);
+                    this.structurems = source.ToList();
+                }
+                else if (this.cache.ContainsKey("StructureMaster"))
+                {
+                    double num = TimeSpan.FromTicks(DateTime.Now.Ticks).TotalSeconds - this.cache["StructureMaster"];
+                    if (num >= this.CacheUpdateTime || double.IsNaN(num) || num <= 0)
+                    {
+                        this.cache["StructureMaster"] = TimeSpan.FromTicks(DateTime.Now.Ticks).TotalSeconds;
+                        IEnumerable<Entity> source = from s in StructureMaster.AllStructures
+                            select new Entity(s);
+                        this.structurems = source.ToList();
+                    }
+                }
+            }
+            catch
+            {
+                this.cache["StructureMaster"] = TimeSpan.FromTicks(DateTime.Now.Ticks).TotalSeconds;
+                IEnumerable<Entity> source = from s in StructureMaster.AllStructures
+                                             select new Entity(s);
+                this.structurems = source.ToList();
+            }
+            return this.structurems;
+        }
+
+        public IEnumerable<Entity> LootableObjects
         {
             get
             {
-                IEnumerable<Entity> structures = from s in StructureMaster.AllStructures
-                                                             select new Entity(s);
-                return structures.ToList<Entity>();
+                if (Util.GetUtil().CurrentWorkingThreadID != Util.GetUtil().MainThreadID)
+                {
+                    Logger.LogWarning("[Fougerite LootableObjects] Some plugin is calling World.LootableObjects in a Thread/Timer. This is dangerous, and may cause crashes.");
+                }
+                IEnumerable<Entity> source = from s in UnityEngine.Object.FindObjectsOfType<LootableObject>()
+                                             select new Entity(s);
+                return source.ToList();
+            }
+        }
+
+        public IEnumerable<Entity> SupplyCrates
+        {
+            get
+            {
+                if (Util.GetUtil().CurrentWorkingThreadID != Util.GetUtil().MainThreadID)
+                {
+                    Logger.LogWarning("[Fougerite SupplyCrates] Some plugin is calling World.SupplyCrates in a Thread/Timer. This is dangerous, and may cause crashes.");
+                }
+                IEnumerable<Entity> source = from s in UnityEngine.Object.FindObjectsOfType<SupplyCrate>()
+                                             select new Entity(s);
+                return source.ToList();
             }
         }
 
@@ -376,22 +585,32 @@
         {
             get
             {
-                IEnumerable<Entity> component = from c in UnityEngine.Object.FindObjectsOfType<StructureComponent>()
-                                                select new Entity(c);
-                IEnumerable<Entity> deployable = from d in UnityEngine.Object.FindObjectsOfType<DeployableObject>()
-                                                 select new Entity(d);
-                IEnumerable<Entity> supplydrop = from s in UnityEngine.Object.FindObjectsOfType<SupplyCrate>()
-                                             select new Entity(s);
-                // this is much faster than Concat
-                List<Entity> entities = new List<Entity>(component.Count() + deployable.Count() + supplydrop.Count());
-                entities.AddRange(component);
-                entities.AddRange(deployable);
-                if (supplydrop.Count() > 0)
+                try
                 {
-                    entities.AddRange(supplydrop);
+                    if (Util.GetUtil().CurrentWorkingThreadID != Util.GetUtil().MainThreadID)
+                    {
+                        Logger.LogWarning("[Fougerite Entities] Some plugin is calling World.Entities in a Thread/Timer. This is dangerous, and may cause crashes.");
+                    }
+                    var structs = UnityEngine.Object.FindObjectsOfType<StructureComponent>();
+                    var deployables = UnityEngine.Object.FindObjectsOfType<DeployableObject>();
+                    var crates = UnityEngine.Object.FindObjectsOfType<SupplyCrate>();
+                    IEnumerable<Entity> component = structs.Select(x => new Entity(x)).ToList();
+                    IEnumerable<Entity> deployable = deployables.Select(x => new Entity(x)).ToList();
+                    IEnumerable<Entity> supplydrop = crates.Select(x => new Entity(x)).ToList();
+                    // this is much faster than Concat
+                    List<Entity> entities = new List<Entity>(component.Count() + deployable.Count() + supplydrop.Count());
+                    entities.AddRange(component);
+                    entities.AddRange(deployable);
+                    if (supplydrop.Count() > 0)
+                    {
+                        entities.AddRange(supplydrop);
+                    }
+                    return entities;
                 }
-
-                return entities;
+                catch
+                {
+                    return new List<Entity>();
+                }
             }
         }
 

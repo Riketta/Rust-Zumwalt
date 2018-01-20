@@ -12,10 +12,11 @@
 
         public override void Execute(ref ConsoleSystem.Arg Arguments, ref string[] ChatArguments)
         {
+            var pl = Fougerite.Server.Cache[Arguments.argUser.userID];
             string playerName = string.Join(" ", ChatArguments).Trim(new char[] { ' ', '"' });
             if (playerName == string.Empty)
             {
-                Util.sayUser(Arguments.argUser.networkPlayer, Core.Name, "Sharing Doors Usage:  /share playerName");
+                pl.MessageFrom(Core.Name, "Sharing Doors Usage:  /share playerName");
                 return;
             }
             PList list = new PList();
@@ -24,73 +25,77 @@
             {
                 if (entry.Value.Equals(playerName, StringComparison.OrdinalIgnoreCase))
                 {
-                    DoorShare(new PList.Player(entry.Key, entry.Value), Arguments.argUser);
+                    DoorShare(new PList.Player(entry.Key, entry.Value), pl);
                     return;
-                } else if (entry.Value.ToUpperInvariant().Contains(playerName.ToUpperInvariant()))
+                }
+                if (entry.Value.ToUpperInvariant().Contains(playerName.ToUpperInvariant()))
                     list.Add(entry.Key, entry.Value);
             }
             if (list.Count == 1)
             {
-                foreach (PlayerClient client in PlayerClient.All)
+                foreach (Fougerite.Player client in Fougerite.Server.GetServer().Players)
                 {
-                    if (client.netUser.displayName.Equals(playerName, StringComparison.OrdinalIgnoreCase))
+                    if (client.Name.Equals(playerName, StringComparison.OrdinalIgnoreCase))
                     {
-                        DoorShare(new PList.Player(client.netUser.userID, client.netUser.displayName), Arguments.argUser);
+                        DoorShare(new PList.Player(client.UID, client.Name), pl);
                         return;
-                    } else if (client.netUser.displayName.ToUpperInvariant().Contains(playerName.ToUpperInvariant()))
-                        list.Add(client.netUser.userID, client.netUser.displayName);
+                    }
+                    if (client.Name.ToUpperInvariant().Contains(playerName.ToUpperInvariant()))
+                        list.Add(client.UID, client.Name);
                 }
             }
             if (list.Count == 1)
             {
-                Util.sayUser(Arguments.argUser.networkPlayer, Core.Name, string.Format("No player found with the name {0}.", playerName));
+                pl.MessageFrom(Core.Name, string.Format("No player found with the name {0}.", playerName));
                 return;
             }
-            Util.sayUser(Arguments.argUser.networkPlayer, Core.Name, string.Format("{0}  player{1} {2}: ", ((list.Count - 1)).ToString(), (((list.Count - 1) > 1) ? "s match" : " matches"), playerName));
+            pl.MessageFrom(Core.Name, string.Format("{0}  player{1} {2}: ", ((list.Count - 1)).ToString(), (((list.Count - 1) > 1) ? "s match" : " matches"), playerName));
             for (int i = 1; i < list.Count; i++)
             {
-                Util.sayUser(Arguments.argUser.networkPlayer, Core.Name, string.Format("{0} - {1}", i, list.PlayerList[i].DisplayName));
+                pl.MessageFrom(Core.Name, string.Format("{0} - {1}", i, list.PlayerList[i].DisplayName));
             }
-            Util.sayUser(Arguments.argUser.networkPlayer, Core.Name, "0 - Cancel");
-            Util.sayUser(Arguments.argUser.networkPlayer, Core.Name, "Please enter the number matching the player to share doors with.");
-            Core.shareWaitList[Arguments.argUser.userID] = list;
+            pl.MessageFrom(Core.Name, "0 - Cancel");
+            pl.MessageFrom(Core.Name, "Please enter the number matching the player to share doors with.");
+            Core.shareWaitList[pl.UID] = list;
         }
 
         public void PartialNameDoorShare(ref ConsoleSystem.Arg Arguments, int id)
         {
+            var pl = Fougerite.Server.Cache[Arguments.argUser.userID];
             if (id == 0)
             {
-                Util.sayUser(Arguments.argUser.networkPlayer, Core.Name, "Cancelled!");
+                pl.MessageFrom(Core.Name, "Cancelled!");
                 return;
             }
-            PList list = (PList)Core.shareWaitList[Arguments.argUser.userID];
-            DoorShare(list.PlayerList[id], Arguments.argUser);
+            PList list = (PList)Core.shareWaitList[pl.UID];
+            DoorShare(list.PlayerList[id], pl);
         }
 
-        public void DoorShare(PList.Player friend, NetUser sharing)
+        public void DoorShare(PList.Player friend, Fougerite.Player sharing)
         {
-            if (friend.UserID == sharing.userID)
+            if (friend.UserID == sharing.UID)
             {
-                Util.sayUser(sharing.networkPlayer, Core.Name, "Why would you share with yourself?");
+                sharing.MessageFrom(Core.Name, "Why would you share with yourself?");
                 return;
             }
-            ArrayList shareList = (ArrayList)shared_doors[sharing.userID];
+            ArrayList shareList = (ArrayList)shared_doors[sharing.UID];
             if (shareList == null)
             {
                 shareList = new ArrayList();
-                shared_doors.Add(sharing.userID, shareList);
+                shared_doors.Add(sharing.UID, shareList);
 
             }
             if (shareList.Contains(friend.UserID))
             {
-                Util.sayUser(sharing.networkPlayer, Core.Name, string.Format("You have already shared doors with {0}.", friend.DisplayName));
+                sharing.MessageFrom(Core.Name, string.Format("You have already shared doors with {0}.", friend.DisplayName));
                 return;
             }
             shareList.Add(friend.UserID);
-            Util.sayUser(sharing.networkPlayer, Core.Name, string.Format("You have shared doors with {0}.", friend.DisplayName));
-            PlayerClient client;
-            if (PlayerClient.FindByUserID(friend.UserID, out client))
-                Util.sayUser(client.netPlayer, Core.Name, string.Format("{0} has shared doors with you.", sharing.displayName));
+            shared_doors[sharing.UID] = shareList;
+            sharing.MessageFrom(Core.Name, string.Format("You have shared doors with {0}.", friend.DisplayName));
+            Fougerite.Player client = Fougerite.Server.GetServer().FindPlayer(friend.UserID.ToString());
+            if (client != null)
+                client.MessageFrom(Core.Name, string.Format("{0} has shared doors with you.", sharing.Name));
         }
 
         public Hashtable GetSharedDoors()
