@@ -122,18 +122,33 @@
 
         public static void ObjectToFile<T>(T ht, string path)
         {
-            BinaryFormatter formatter = new BinaryFormatter();
-            FileStream stream = new FileStream(path, FileMode.Create);
-            StreamWriter writer = new StreamWriter(stream);
-            formatter.Serialize(writer.BaseStream, ht);
+            try
+            {
+                BinaryFormatter formatter = new BinaryFormatter();
+                FileStream stream = new FileStream(path, FileMode.Create);
+                StreamWriter writer = new StreamWriter(stream);
+                formatter.Serialize(writer.BaseStream, ht);
+                writer.Dispose();
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError("[Rust++] " + path + " seems to be corrupted. Stop the server and delete the file. Error: " + ex);
+            }
         }
 
         public static void ObjectToXML<T>(T obj, string path)
         {
-            XmlSerializer serializer = new XmlSerializer(typeof(T));
-            TextWriter textWriter = new StreamWriter(path);
-            serializer.Serialize(textWriter, obj);
-            textWriter.Close();
+            try
+            { 
+                XmlSerializer serializer = new XmlSerializer(typeof(T));
+                TextWriter textWriter = new StreamWriter(path);
+                serializer.Serialize(textWriter, obj);
+                textWriter.Close();
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError("[Rust++] " + path + " seems to be corrupted. Stop the server and delete the file. Error: " + ex);
+            }
         }
     }
 

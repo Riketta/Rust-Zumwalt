@@ -6,6 +6,7 @@
     {
         private string ntext;
         private string origText;
+        private bool _cancelled = false;
 
         public ChatString(string str)
         {
@@ -28,9 +29,14 @@
             }
             set
             {
+                if (_cancelled)
+                {
+                    return;
+                }
                 // Rust doesn't like empty strings on chat
                 if (string.IsNullOrEmpty(value))
                 {
+                    _cancelled = true;
                     ntext = "          ";
                 }
                 else

@@ -12,9 +12,10 @@
     {
         public override void Execute(ref ConsoleSystem.Arg Arguments, ref string[] ChatArguments)
         {
+            var pl = Fougerite.Server.Cache[Arguments.argUser.userID];
             if (ChatArguments.Length <= 1)
             {
-                Util.sayUser(Arguments.argUser.networkPlayer, Core.Name, "AddFlag Usage:  /addflag playerName flag1 flag2...");
+                pl.MessageFrom(Core.Name, "AddFlag Usage:  /addflag playerName flag1 flag2...");
                 return;
             }
 
@@ -38,13 +39,28 @@
             }
             if (flags.Count == 0)
             {
-                Util.sayUser(Arguments.argUser.networkPlayer, Core.Name, "No valid flags were given.");
+                pl.MessageFrom(Core.Name, "No valid flags were given.");
                 return;
             }
             if (flags.Contains("ALL"))
             {
                 flags.Clear();
                 flags.AddRange(Administrator.PermissionsFlags);
+            }
+            Fougerite.Player matchingplayer = Fougerite.Server.GetServer().FindPlayer(name[0]);
+            if (matchingplayer != null)
+            {
+                if (Administrator.IsAdmin(matchingplayer.UID))
+                {
+                    Core.adminFlagWaitList[pl.UID] = admins;
+                    Core.adminFlagsList[pl.UID] = flags;
+                    AddFlags(Administrator.GetAdmin(matchingplayer.UID), pl);
+                }
+                else
+                {
+                    pl.MessageFrom(Core.Name, string.Format("{0} is not an administrator.", string.Join(" ", name.ToArray())));
+                }
+                return;
             }
             List<Administrator> match = new List<Administrator>();
             for (int i = 0; i < name.Count; i++)
@@ -60,63 +76,64 @@
             }
             if (match.Count == 0)
             {
-                Util.sayUser(Arguments.argUser.networkPlayer, Core.Name, string.Format("{0} is not an administrator.", string.Join(" ", name.ToArray())));
+                pl.MessageFrom(Core.Name, string.Format("{0} is not an administrator.", string.Join(" ", name.ToArray())));
                 return;
             }
             if (match.Count == 1)
             {
-                Core.adminFlagsList.Add(Arguments.argUser.userID, flags);
-                AddFlags(match[0], Arguments.argUser);
+                Core.adminFlagsList.Add(pl.UID, flags);
+                AddFlags(match[0], pl);
                 return;
             }
             admins.AddRange(match.Distinct());
-            Util.sayUser(Arguments.argUser.networkPlayer, Core.Name,
+            pl.MessageFrom(Core.Name,
                 string.Format("{0}  player{1} {2}: ", ((admins.Count - 1)).ToString(), (((admins.Count - 1) > 1) ? "s match" : " matches"), string.Join(" ", name.ToArray())));
 
             for (int i = 1; i < admins.Count; i++)
             {
-                Util.sayUser(Arguments.argUser.networkPlayer, Core.Name, string.Format("{0} - {1}", i, admins[i].DisplayName));
+                pl.MessageFrom(Core.Name, string.Format("{0} - {1}", i, admins[i].DisplayName));
             }
-            Util.sayUser(Arguments.argUser.networkPlayer, Core.Name, "0 - Cancel");
-            Util.sayUser(Arguments.argUser.networkPlayer, Core.Name, "Please enter the number matching the administrator you were looking for.");
-            Core.adminFlagWaitList[Arguments.argUser.userID] = admins;
-            Core.adminFlagsList[Arguments.argUser.userID] = flags;
+            pl.MessageFrom(Core.Name, "0 - Cancel");
+            pl.MessageFrom(Core.Name, "Please enter the number matching the administrator you were looking for.");
+            Core.adminFlagWaitList[pl.UID] = admins;
+            Core.adminFlagsList[pl.UID] = flags;
         }
 
         public void PartialNameAddFlags(ref ConsoleSystem.Arg Arguments, int id)
         {
+            var pl = Fougerite.Server.Cache[Arguments.argUser.userID];
             if (id == 0)
             {
-                Util.sayUser(Arguments.argUser.networkPlayer, Core.Name, "Cancelled!");
+                pl.MessageFrom(Core.Name, "Cancelled!");
                 return;
             }
-            List<Administrator> list = (List<Administrator>)Core.adminFlagWaitList[Arguments.argUser.userID];
-            AddFlags(list[id], Arguments.argUser);
+            List<Administrator> list = (List<Administrator>)Core.adminFlagWaitList[pl.UID];
+            AddFlags(list[id], pl);
         }
 
-        public void AddFlags(Administrator administrator, NetUser myAdmin)
+        public void AddFlags(Administrator administrator, Fougerite.Player myAdmin)
         {         
-            List<string> flags = (List<string>)Core.adminFlagsList[myAdmin.userID];
-            Core.adminFlagsList.Remove(myAdmin.userID);
+            List<string> flags = (List<string>)Core.adminFlagsList[myAdmin.UID];
+            Core.adminFlagsList.Remove(myAdmin.UID);
 
             foreach (string properName in flags)
             {
-                if (properName == "RCON" && !Administrator.GetAdmin(myAdmin.userID).HasPermission("RCON"))
+                if (properName == "RCON" && !Administrator.GetAdmin(myAdmin.UID).HasPermission("RCON"))
                 {
-                    Util.sayUser(myAdmin.networkPlayer, Core.Name, "You can't add the RCON flag to anyone's permissions.");
-                    Administrator.NotifyAdmins(string.Format("{0} attempted to add the {1} flag to {2}'s permissions.", myAdmin.displayName, properName, administrator.DisplayName));
+                    myAdmin.MessageFrom(Core.Name, "You can't add the RCON flag to anyone's permissions.");
+                    Administrator.NotifyAdmins(string.Format("{0} attempted to add the {1} flag to {2}'s permissions.", myAdmin.Name, properName, administrator.DisplayName));
                 } else if (administrator.HasPermission(properName))
                 {
-                    Util.sayUser(myAdmin.networkPlayer, Core.Name, string.Format("{0} already has the {1} flag.", administrator.DisplayName, properName));
+                    myAdmin.MessageFrom(Core.Name, string.Format("{0} already has the {1} flag.", administrator.DisplayName, properName));
                 } else
                 {
                     administrator.Flags.Add(properName);
-                    Administrator.NotifyAdmins(string.Format("{0} added the {1} flag to {2}'s permissions.", myAdmin.displayName, properName, administrator.DisplayName));
+                    Administrator.NotifyAdmins(string.Format("{0} added the {1} flag to {2}'s permissions.", myAdmin.Name, properName, administrator.DisplayName));
                     if (properName == "RCON")
                     {                           
-                        PlayerClient adminclient;
-                        if (PlayerClient.FindByUserID(administrator.UserID, out adminclient))
-                            adminclient.netUser.admin = true;
+                        Fougerite.Player adminclient = Fougerite.Server.GetServer().FindPlayer(administrator.UserID.ToString());
+                        if (adminclient != null)
+                            adminclient.PlayerClient.netUser.admin = true;
                     }
                 }
             }

@@ -1,4 +1,7 @@
 ﻿
+using System.Net.Security;
+using System.Security.Cryptography.X509Certificates;
+
 namespace Fougerite
 {
     using System.Net;
@@ -22,6 +25,20 @@ namespace Fougerite
                 byte[] bytes = client.UploadData(url, "POST", Encoding.ASCII.GetBytes(data));
                 return Encoding.ASCII.GetString(bytes);
             }
+        }
+
+        public string GETWithSSL(string url)
+        {
+            ServicePointManager.ServerCertificateValidationCallback = new System.Net.Security.RemoteCertificateValidationCallback(AcceptAllCertifications);
+            using (System.Net.WebClient client = new System.Net.WebClient())
+            {
+                return client.DownloadString(url);
+            }
+        }
+        
+        private bool AcceptAllCertifications(object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors sslpolicyerrors)
+        {
+            return true;
         }
     }
 }
