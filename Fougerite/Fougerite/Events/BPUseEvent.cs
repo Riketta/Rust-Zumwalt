@@ -5,7 +5,7 @@
     {
         private BlueprintDataBlock _bdb;
         private bool _cancel;
-        private IBlueprintItem _item;
+        private readonly IBlueprintItem _item;
 
         public BPUseEvent(BlueprintDataBlock bdb, IBlueprintItem item)
         {

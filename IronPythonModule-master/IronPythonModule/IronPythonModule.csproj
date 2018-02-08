@@ -23,7 +23,7 @@
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>full</DebugType>
     <Optimize>true</Optimize>
-    <OutputPath>bin\Release</OutputPath>
+    <OutputPath>..\..\bin\modules\IronPythonModule\</OutputPath>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <ConsolePause>false</ConsolePause>
@@ -33,8 +33,9 @@
       <SpecificVersion>False</SpecificVersion>
       <HintPath>..\..\bin\Fougerite.dll</HintPath>
     </Reference>
-    <Reference Include="IronPython.Deps">
-      <HintPath>..\..\IPMOld\IronPythonModule\ref\IronPython.Deps.dll</HintPath>
+    <Reference Include="IronPython.Deps, Version=2.7.0.40, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>ref\IronPython.Deps.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="Assembly-CSharp">
