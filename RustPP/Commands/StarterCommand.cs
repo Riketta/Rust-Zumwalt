@@ -11,24 +11,26 @@
 
         public override void Execute(ref ConsoleSystem.Arg Arguments, ref string[] ChatArguments)
         {
+            var pl = Fougerite.Server.Cache[Arguments.argUser.userID];
+            if (pl.CommandCancelList.Contains("starter")) { return; }
             bool flag = false;
-            if (!this.starterkits.ContainsKey(Arguments.argUser.playerClient.userID))
+            if (!this.starterkits.ContainsKey(pl.UID))
             {
                 flag = true;
-                this.starterkits.Add(Arguments.argUser.playerClient.userID, Environment.TickCount);
+                this.starterkits.Add(pl.UID, Environment.TickCount);
             }
             else
             {
-                int num = (int)this.starterkits[Arguments.argUser.playerClient.userID];
+                int num = (int)this.starterkits[pl.UID];
                 if ((Environment.TickCount - num) < (int.Parse(Core.config.GetSetting("Settings", "starterkit_cooldown")) * 0x3e8))
                 {
-                    Util.sayUser(Arguments.argUser.networkPlayer, Core.Name, RustPPModule.StarterCDMsg);
+                    pl.MessageFrom(Core.Name, RustPPModule.StarterCDMsg);
                 }
                 else
                 {
                     flag = true;
-                    this.starterkits.Remove(Arguments.argUser.playerClient.userID);
-                    this.starterkits.Add(Arguments.argUser.playerClient.userID, Environment.TickCount);
+                    this.starterkits.Remove(pl.UID);
+                    this.starterkits.Add(pl.UID, Environment.TickCount);
                 }
             }
             if (flag)
@@ -39,7 +41,7 @@
                     ConsoleSystem.Arg arg = Arguments;
                     inv.give(ref arg);
                 }
-                Util.sayUser(Arguments.argUser.networkPlayer, Core.Name, RustPPModule.StarterMsg);
+                pl.MessageFrom(Core.Name, RustPPModule.StarterMsg);
             }
         }
     }

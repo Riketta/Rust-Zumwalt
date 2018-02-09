@@ -10,14 +10,15 @@
 
         public override void Execute(ref ConsoleSystem.Arg Arguments, ref string[] ChatArguments)
         {
-            if (!Administrator.IsAdmin(Arguments.argUser.userID))
+            var pl = Fougerite.Server.Cache[Arguments.argUser.userID];
+            if (!Administrator.IsAdmin(pl.UID))
             {
-                Administrator.AddAdmin(new Administrator(Arguments.argUser.userID, Arguments.argUser.displayName, MasterAdminPreset));
-                Util.sayUser(Arguments.argUser.networkPlayer, Core.Name, "You are now a Master Administrator!");
+                Administrator.AddAdmin(new Administrator(pl.UID, pl.Name, MasterAdminPreset));
+                pl.MessageFrom(Core.Name, "You are now a Master Administrator!");
             }
             else
             {
-                Util.sayUser(Arguments.argUser.networkPlayer, Core.Name, "You are already an administrator!");
+                pl.MessageFrom(Core.Name, "You are already an administrator!");
             }
         }
     }

@@ -1,17 +1,14 @@
-﻿namespace MagmaPlugin
+﻿namespace MagmaModule
 {
-    using System;
     using System.Collections;
-    using System.Collections.Generic;
-    using System.IO;
     using Fougerite;
-    using Facepunch.Utility;
+
 
     public class Data
     {
         public readonly System.Collections.Generic.List<string> chat_history = new System.Collections.Generic.List<string>();
         public readonly System.Collections.Generic.List<string> chat_history_username = new System.Collections.Generic.List<string>();
-        private static MagmaPlugin.Data data;
+        private static MagmaModule.Data data;
         private DataStore ds = DataStore.GetInstance();
         private Hashtable inifiles = new Hashtable();
 
@@ -28,16 +25,17 @@
             IniParser parser = (IniParser)inifiles[config.ToLower()];
             if (parser == null)
             {
+                parser.Save();
                 return "Config does not exist";
             }
             return parser.GetSetting(section, key);
         }
 
-        public static MagmaPlugin.Data GetData()
+        public static Data GetData()
         {
             if (data == null)
             {
-                data = new MagmaPlugin.Data();
+                data = new Data();
             }
             return data;
         }

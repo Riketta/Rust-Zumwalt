@@ -16,7 +16,7 @@ namespace RustPP
     public class Core
     {
         public static string Name = "Rust++";
-        public static string Version = "1.6.9";
+        public static string Version = "1.1.8.0";
         public static IniParser config;
         public static PList blackList = new PList();
         public static PList whiteList = new PList();
@@ -84,39 +84,20 @@ namespace RustPP
                 Administrator.AdminList = Helper.ObjectFromXML<List<Administrator>>(RustPPModule.GetAbsoluteFilePath("admins.xml"));
             }
             success = false;
-            bool clearer = false;
             if (File.Exists(RustPPModule.GetAbsoluteFilePath("userCache.xml")))
             {
                 FileInfo fi = new FileInfo(RustPPModule.GetAbsoluteFilePath("userCache.xml"));
                 float mega = (fi.Length / 1024f) / 1024f;
-                if (mega > 0.65)
+                if (mega > 0.70)
                 {
-                    try
-                    {
-                        //string n = Path.Combine(RustPPModule.ConfigsFolder, "userCache-OLD-" + DateTime.Now.ToShortDateString() + ".xml");
-                        System.IO.File.Move(RustPPModule.GetAbsoluteFilePath("userCache.xml"),
-                            Path.Combine(RustPPModule.ConfigsFolder,
-                                "userCache-OLD-" + DateTime.Now.ToShortDateString() + ".xml"));
-                        clearer = true;
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.LogError("Rust++ failed to copy the usercache file.");
-                    }
+                    Logger.LogWarning("Rust++ Cache.xml and Cache.rpp is getting big. Deletion is suggested.");
                 }
-                else 
-                { 
-                    SerializableDictionary<ulong, string> userDict = Helper.ObjectFromXML<SerializableDictionary<ulong, string>>(RustPPModule.GetAbsoluteFilePath("userCache.xml"));
-                    userCache = new Dictionary<ulong, string>(userDict);
-                    success = true;
-                }
+                SerializableDictionary<ulong, string> userDict = Helper.ObjectFromXML<SerializableDictionary<ulong, string>>(RustPPModule.GetAbsoluteFilePath("userCache.xml"));
+                userCache = new Dictionary<ulong, string>(userDict);
+                success = true;
             }
             if (File.Exists(RustPPModule.GetAbsoluteFilePath("cache.rpp")) && !success)
             {
-                if (clearer)
-                {
-                    File.WriteAllText(RustPPModule.GetAbsoluteFilePath("cache.rpp"), string.Empty);
-                }
                 userCache = Helper.ObjectFromFile<Dictionary<ulong, string>>(RustPPModule.GetAbsoluteFilePath("cache.rpp"));
                 if (!File.Exists(RustPPModule.GetAbsoluteFilePath("userCache.xml")))
                     Helper.ObjectToXML<SerializableDictionary<ulong, string>>(new SerializableDictionary<ulong, string>(userCache), RustPPModule.GetAbsoluteFilePath("userCache.xml"));
@@ -248,6 +229,12 @@ namespace RustPP
             WhiteListAddCommand command23 = new WhiteListAddCommand();
             command23.AdminFlags = "CanWhiteList";
             ChatCommand.AddCommand("/addwl", command23);
+            ShutDownCommand command24 = new ShutDownCommand();
+            command24.AdminFlags = "CanShutdown";
+            ChatCommand.AddCommand("/shutdown", command24);
+            InstaKOAllCommand command25 = new InstaKOAllCommand();
+            command25.AdminFlags = "CanInstaKOAll";
+            ChatCommand.AddCommand("/instakoall", command25);
         }
 
         public static bool IsEnabled()
@@ -255,7 +242,7 @@ namespace RustPP
             return config.GetBoolSetting("Settings", "rust++_enabled");
         }
 
-        public static void motd(uLink.NetworkPlayer player)
+        public static void motd(Fougerite.Player player)
         {
             if (config.GetBoolSetting("Settings", "motd"))
             {
@@ -265,7 +252,7 @@ namespace RustPP
                     string setting = config.GetSetting("Settings", "motd" + num);
                     if (setting != null)
                     {
-                        Util.sayUser(player, Core.Name, setting);
+                        player.MessageFrom(Core.Name, setting);
                         num++;
                     }
                     else

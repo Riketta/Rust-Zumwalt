@@ -26,7 +26,7 @@
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
     <Optimize>true</Optimize>
-    <OutputPath>bin\Release\</OutputPath>
+    <OutputPath>..\bin\modules\MoonSharp\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
@@ -40,7 +40,8 @@
     <Reference Include="Facepunch.ID">
       <HintPath>..\..\IPMOld\IronPythonModule\ref\Facepunch.ID.dll</HintPath>
     </Reference>
-    <Reference Include="Fougerite">
+    <Reference Include="Fougerite, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
       <HintPath>..\bin\Fougerite.dll</HintPath>
     </Reference>
     <Reference Include="MoonSharp.Interpreter, Version=0.9.6.2, Culture=neutral, processorArchitecture=MSIL">
@@ -48,6 +49,10 @@
       <HintPath>..\References\MoonSharp.Interpreter.dll</HintPath>
     </Reference>
     <Reference Include="System" />
+    <Reference Include="uLink, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\bin\uLink.dll</HintPath>
+    </Reference>
     <Reference Include="UnityEngine">
       <HintPath>..\bin\UnityEngine.dll</HintPath>
     </Reference>

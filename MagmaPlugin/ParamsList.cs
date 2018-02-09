@@ -1,39 +1,39 @@
-﻿using System.Collections.Generic;
-
-public class ParamsList
+﻿
+namespace MagmaModule
 {
-    private List<object> objs;
-
-    public int Length
+    using System.Collections.Generic;
+    public class ParamsList
     {
-        get
+        private List<object> objs;
+
+        public int Length
         {
-            return this.objs.Count;
+            get { return this.objs.Count; }
         }
-    }
 
-    public ParamsList()
-    {
-        this.objs = new List<object>();
-    }
+        public ParamsList()
+        {
+            this.objs = new List<object>();
+        }
 
-    public void Add(object o)
-    {
-        this.objs.Add(o);
-    }
+        public void Add(object o)
+        {
+            this.objs.Add(o);
+        }
 
-    public void Remove(object o)
-    {
-        this.objs.Remove(o);
-    }
+        public void Remove(object o)
+        {
+            this.objs.Remove(o);
+        }
 
-    public object Get(int index)
-    {
-        return this.objs[index];
-    }
+        public object Get(int index)
+        {
+            return this.objs[index];
+        }
 
-    public object[] ToArray()
-    {
-        return this.objs.ToArray<object>();
+        public object[] ToArray()
+        {
+            return this.objs.ToArray<object>();
+        }
     }
 }

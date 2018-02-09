@@ -1,15 +1,19 @@
+
 namespace Fougerite
 {
     using System;
     using System.IO;
     using UnityEngine;
-    using UnityEngine.Cloud.Analytics;
+    using System.Threading;
 
     public class Bootstrap : Facepunch.MonoBehaviour
     {
-        public static string Version = "1.1.3";
+        public const string Version = "1.6.1";
         public static bool CR = false;
         public static bool BI = false;
+        public static bool TS = false;
+        public static bool EnableDefaultRustDecay = true;
+        internal static readonly Thread CurrentThread = Thread.CurrentThread;
 
         public static void AttachBootstrap()
         {
@@ -17,7 +21,7 @@ namespace Fougerite
             {
                 Bootstrap bootstrap = new Bootstrap();
                 new GameObject(bootstrap.GetType().FullName).AddComponent(bootstrap.GetType());
-                Debug.Log(string.Format("<><[ Fougerite v{0} ]><>", Fougerite.Bootstrap.Version));
+                Debug.Log(string.Format("<><[ Fougerite v{0} ]><>", Version));
             }
             catch (Exception ex)
             {
@@ -46,6 +50,10 @@ namespace Fougerite
             {
                 BI = Fougerite.Config.GetBoolValue("Fougerite", "BanOnInvalidPacket");
             }
+            if (Fougerite.Config.GetValue("Fougerite", "UseThreadAtServerSave") != null)
+            {
+                TS = Fougerite.Config.GetBoolValue("Fougerite", "UseThreadAtServerSave");
+            }
             if (!Fougerite.Config.GetBoolValue("Fougerite", "deployabledecay") && !Fougerite.Config.GetBoolValue("Fougerite", "decay"))
             {
                 decay.decaytickrate = float.MaxValue / 2;
@@ -58,6 +66,24 @@ namespace Fougerite
                 structure.maxframeattempt = -1;
                 structure.framelimit = -1;
                 structure.minpercentdmg = float.MaxValue;
+            }
+            if (Fougerite.Config.GetValue("Fougerite", "EnableDefaultRustDecay") != null)
+            {
+                EnableDefaultRustDecay = Fougerite.Config.GetBoolValue("Fougerite", "EnableDefaultRustDecay");
+            }
+            else
+            {
+                NetCull.Callbacks.beforeEveryUpdate += new NetCull.UpdateFunctor(EnvDecay.Callbacks.RunDecayThink);
+                Logger.LogWarning("[RustDecay] The default Rust Decay is enabled. (Config option not found)");
+            }
+            if (EnableDefaultRustDecay)
+            {
+                NetCull.Callbacks.beforeEveryUpdate += new NetCull.UpdateFunctor(EnvDecay.Callbacks.RunDecayThink);
+                Logger.LogWarning("[RustDecay] The default Rust Decay is enabled.");
+            }
+            else
+            {
+                Logger.LogWarning("[RustDecay] The default Rust Decay is disabled.");
             }
             return true;
         }
@@ -74,7 +100,9 @@ namespace Fougerite
             if (ApplyOptions()) {
                 ModuleManager.LoadModules();
                 Fougerite.Hooks.ServerStarted();
+                Fougerite.ShutdownCatcher.Hook();
             }
+            SQLiteConnector.GetInstance.Setup();
         }
     }
 }
