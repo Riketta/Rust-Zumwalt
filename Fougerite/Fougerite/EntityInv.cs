@@ -1,3 +1,5 @@
+using System.Linq;
+
 namespace Fougerite
 {
 
@@ -75,7 +77,14 @@ namespace Fougerite
             foreach (EntityItem item in this.Items)
             {
                 if (item.Name == name)
+                {
+                    if (Util.UStackable.Contains(name))
+                    {
+                        num += 1;
+                        continue;
+                    }
                     num += item.UsesLeft;
+                }
             }
             return (num >= amount);
         }

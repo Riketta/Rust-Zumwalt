@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<module type="RIDER_MODULE" version="4">
+  <component name="NewModuleRootManager">
+    <content url="file://$MODULE_DIR$/../..">
+      <sourceFolder url="file://$MODULE_DIR$/../../Fougerite" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/../../Fougerite.Patcher" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/../../GlitchFix" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/../../IronPythonModule-master/IronPythonModule" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/../../JintPlugin" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/../../MagmaPlugin" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/../../MoonSharp" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/../../RustPP" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/../../ServerTests" isTestSource="false" />
+      <excludeFolder url="file://$MODULE_DIR$/../../Fougerite.Patcher/obj" />
+      <excludeFolder url="file://$MODULE_DIR$/../../Fougerite/obj" />
+      <excludeFolder url="file://$MODULE_DIR$/../../GlitchFix/obj" />
+      <excludeFolder url="file://$MODULE_DIR$/../../IronPythonModule-master/IronPythonModule/bin" />
+      <excludeFolder url="file://$MODULE_DIR$/../../IronPythonModule-master/IronPythonModule/obj" />
+      <excludeFolder url="file://$MODULE_DIR$/../../JintPlugin/obj" />
+      <excludeFolder url="file://$MODULE_DIR$/../../MagmaPlugin/obj" />
+      <excludeFolder url="file://$MODULE_DIR$/../../MoonSharp/obj" />
+      <excludeFolder url="file://$MODULE_DIR$/../../RustPP/obj" />
+      <excludeFolder url="file://$MODULE_DIR$/../../ServerTests/obj" />
+      <excludeFolder url="file://$MODULE_DIR$/../../bin" />
+      <excludeFolder url="file://$MODULE_DIR$/../../packages" />
+    </content>
+    <orderEntry type="sourceFolder" forTests="false" />
+  </component>
+</module>

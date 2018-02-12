@@ -301,7 +301,7 @@ namespace ServerTests
         {
             try
             {
-                Log("Say_Test: Test 1");
+                /*Log("Say_Test: Test 1");
                 Util.say(TesterPlayer.PlayerClient.netPlayer, TesterPlayer.Name, "");
 
                 Log("Say_Test: Test 2");
@@ -320,7 +320,7 @@ namespace ServerTests
                 Util.sayUser(TesterPlayer.PlayerClient.netPlayer, "");
                 
                 Log("Say_Test: Test 7");
-                Util.sayUser(TesterPlayer.PlayerClient.netPlayer, null);
+                Util.sayUser(TesterPlayer.PlayerClient.netPlayer, null);*/
             }
             catch (Exception ex)
             {
@@ -430,7 +430,7 @@ namespace ServerTests
 
         void EntityDeployed_Test()
         {
-            try
+            /*try
             {
                 Entity Ent = null;
                 if (World.GetWorld().Entities.ToArray().Length > 1)
@@ -456,7 +456,7 @@ namespace ServerTests
             catch (Exception ex)
             {
                 Logger.LogException(ex);
-            }
+            }*/
         }
 
         void EntityHurt_Test()
@@ -540,7 +540,7 @@ namespace ServerTests
 
         void PlayerDisconnect_Test()
         {
-            try
+            /*try
             {
                 NetUser NUser = null;
                 Log("PlayerConnect_Test: Test 1");
@@ -552,7 +552,7 @@ namespace ServerTests
             catch (Exception ex)
             {
                 Logger.LogException(ex);
-            }
+            }*/
         }
 
         void PlayerHurt_Test()
@@ -593,7 +593,7 @@ namespace ServerTests
         {
         }
 
-        void ShowTalker(uLink.NetworkPlayer player, PlayerClient p)
+        void ShowTalker(uLink.NetworkPlayer player, Fougerite.Player p)
         {
         }
 

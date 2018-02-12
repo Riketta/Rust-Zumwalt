@@ -1,7 +1,10 @@
-﻿using System.IO;
+﻿
+using Fougerite.Events;
 
 namespace Fougerite
 {
+    using System;
+    using System.IO;
     using System.Linq;
     using System.Collections.Generic;
 
@@ -10,124 +13,157 @@ namespace Fougerite
         private ItemsBlocks _items;
         private StructureMaster _serverStructs = new StructureMaster();
         public Fougerite.Data data = new Fougerite.Data();
-        private List<Fougerite.Player> players = new List<Fougerite.Player>();
+        private Dictionary<ulong, Fougerite.Player> players = new Dictionary<ulong, Fougerite.Player>();
         private static Fougerite.Server server;
         private bool HRustPP = false;
         public string server_message_name = "Fougerite";
         public static IDictionary<ulong, Fougerite.Player> Cache = new Dictionary<ulong, Fougerite.Player>();
-        public static IDictionary<Fougerite.Player, List<string>> CommandCancelList = new Dictionary<Player, List<string>>();
         public static IEnumerable<string> ForceCallForCommands = new List<string>();
+        private readonly string path = Path.Combine(Util.GetRootFolder(), Path.Combine("Save", "GlobalBanList.ini"));
+        private readonly List<string> _ConsoleCommandCancelList = new List<string>();
+
 
         public void LookForRustPP()
         {
-            foreach (ModuleContainer m in ModuleManager.Modules)
+            if (HRustPP) { return; }
+            foreach (ModuleContainer m in ModuleManager.Modules.Where(m => m.Plugin.Name.Equals("RustPP")))
             {
-                if (m.Plugin.Name.Equals("RustPP"))
-                {
-                    HRustPP = true;
-                    break;
-                }
+                HRustPP = true;
+                break;
             }
         }
 
-        public void BanPlayer(Fougerite.Player player, string Banner = "Console", string reason = "You were banned.")
+        internal void UpdateBanlist()
         {
+            if (File.Exists(path))
+            {
+                DataStore.GetInstance().Flush("Ips");
+                DataStore.GetInstance().Flush("Ids");
+                var ini = GlobalBanList;
+                foreach (var ip in ini.EnumSection("Ips"))
+                {
+                    DataStore.GetInstance().Add("Ips", ip, ini.GetSetting("Ips", ip));
+                }
+                foreach (var id in ini.EnumSection("Ids"))
+                {
+                    DataStore.GetInstance().Add("Ids", id, ini.GetSetting("Ids", id));
+                }
+                File.Delete(path);
+                DataStore.GetInstance().Save();
+            }
+        }
+
+        public void BanPlayer(Fougerite.Player player, string Banner = "Console", string reason = "You were banned.", Fougerite.Player Sender = null, bool AnnounceToServer = false)
+        {
+            bool cancel = Hooks.OnBanEventHandler(new BanEvent(player, Banner, reason, Sender));
+            if (cancel) { return;}
             string red = "[color #FF0000]";
             string green = "[color #009900]";
             string white = "[color #FFFFFF]";
-            foreach (Fougerite.Player pl in Server.GetServer().Players)
+            
+            if (player.IsOnline && !player.IsDisconnecting)
             {
-                if (pl.Admin || pl.Moderator)
+                player.Message(red + " " + reason);
+                player.Message(red + " Banned by: " + Banner);
+                player.Disconnect();
+            }
+            if (Sender != null)
+            {
+                Sender.Message("You banned " + player.Name);
+                Sender.Message("Player's IP: " + player.IP);
+                Sender.Message("Player's ID: " + player.SteamID);
+            }
+            if (!AnnounceToServer)
+            {
+                foreach (Fougerite.Player pl in Players.Where(pl => pl.Admin || pl.Moderator))
                 {
-                    pl.Message(red + player.Name + white + " was banned by: "
-                               + green + Banner);
+                    pl.Message(red + player.Name + white + " was banned by: " + green + Banner);
                     pl.Message(red + " Reason: " + reason);
                 }
             }
-            IniParser ini = GlobalBanList;
-            ini.AddSetting("Ips", player.IP, player.Name);
-            ini.AddSetting("Ids", player.SteamID, player.Name);
-            ini.AddSetting("NameIps", player.Name, player.IP);
-            ini.AddSetting("NameIds", player.Name, player.SteamID);
-            ini.AddSetting("AdminWhoBanned", player.Name, Banner);
-            ini.Save();
-            player.Message(red + " " + reason);
-            player.Message(red + " Banned by: " + Banner);
-            player.Disconnect();
+            else
+            {
+                Broadcast(red + player.Name + white + " was banned by: " + green + Banner);
+                Broadcast(red + " Reason: " + reason);
+            }
+            BanPlayerIPandID(player.IP, player.SteamID, player.Name, reason, Banner);
         }
 
-        public void BanPlayerIP(string ip, string name = "1")
+        public void BanPlayerIPandID(string ip, string id, string name = "1", string reason = "You were banned.", string adminname = "Unknown")
         {
-            IniParser ini = GlobalBanList;
-            ini.AddSetting("Ips", ip, name);
-            ini.Save();
+            bool cancel = Hooks.OnBanEventHandler(new BanEvent(ip, id, name, reason, adminname));
+            if (cancel) { return; }
+            File.AppendAllText(Path.Combine(Util.GetRootFolder(), "Save\\BanLog.log"), "[" + DateTime.Now.ToShortDateString() + " "
+                + DateTime.Now.ToString("HH:mm:ss") + "] " + name + "|" + ip + "|" + adminname + "|" + reason + "\r\n");
+            File.AppendAllText(Path.Combine(Util.GetRootFolder(), "Save\\BanLog.log"), "[" + DateTime.Now.ToShortDateString()
+                + " " + DateTime.Now.ToString("HH:mm:ss") + "] " + name + "|" + id + "|" + adminname + "|" + reason + "\r\n");
+            DataStore.GetInstance().Add("Ips", ip, name);
+            DataStore.GetInstance().Add("Ids", id, name);
         }
 
-        public void BanPlayerID(string id, string name = "1")
+        public void BanPlayerIP(string ip, string name = "1", string reason = "You were banned.", string adminname = "Unknown")
         {
-            IniParser ini = GlobalBanList;
-            ini.AddSetting("Ids", id, name);
-            ini.Save();
+            bool cancel = Hooks.OnBanEventHandler(new BanEvent(ip, name, reason, adminname, false));
+            if (cancel) { return; }
+            File.AppendAllText(Path.Combine(Util.GetRootFolder(), "Save\\BanLog.log"), "[" + DateTime.Now.ToShortDateString() + " "
+                + DateTime.Now.ToString("HH:mm:ss") + "] " + name + "|" + ip + "|" + adminname + "|" + reason + "\r\n");
+            DataStore.GetInstance().Add("Ips", ip, name);
+        }
+
+        public void BanPlayerID(string id, string name = "1", string reason = "You were banned.", string adminname = "Unknown")
+        {
+            bool cancel = Hooks.OnBanEventHandler(new BanEvent(id, name, reason, adminname, true));
+            if (cancel) { return; }
+            File.AppendAllText(Path.Combine(Util.GetRootFolder(), "Save\\BanLog.log"), "[" + DateTime.Now.ToShortDateString()
+                + " " + DateTime.Now.ToString("HH:mm:ss") + "] " + name + "|" + id + "|" + adminname + "|" + reason + "\r\n");
+            DataStore.GetInstance().Add("Ids", id, name);
         }
 
         public bool IsBannedID(string id)
         {
-            IniParser ini = GlobalBanList;
-            if (ini.ContainsSetting("Ids", id))
-            {
-                return true;
-            }
-            return false;
+            return (DataStore.GetInstance().Get("Ids", id) != null);
         }
 
         public bool IsBannedIP(string ip)
         {
-            IniParser ini = GlobalBanList;
-            if (ini.ContainsSetting("Ips", ip))
-            {
-                return true;
-            }
-            return false;
+            return (DataStore.GetInstance().Get("Ips", ip) != null);
         }
 
-        public bool UnbanByName(string name, string UnBanner = "Console")
+        public bool UnbanByName(string name, string UnBanner = "Console", Fougerite.Player Sender = null)
         {
-            var id = ReturnACNByName2(name);
-            var ip = ReturnACNByName(name);
-            if (id == null)
-            {
-                return false;
-            }
+            var ids = FindIDsOfName(name);
+            var ips = FindIPsOfName(name);
             string red = "[color #FF0000]";
             string green = "[color #009900]";
             string white = "[color #FFFFFF]";
-            foreach (Fougerite.Player pl in Server.GetServer().Players)
+            if (ids.Count == 0 && ips.Count == 0)
             {
-                if (pl.Admin || pl.Moderator)
-                {
-                    pl.Message(red + name + white + " was unbanned by: "
-                        + green + UnBanner);
-                }
+                if (Sender != null) { Sender.Message(red + "Couldn't find any names matching with " + name); }
+                return false;
             }
-            IniParser ini = GlobalBanList;
-            name = id;
-            var iprq = ini.GetSetting("NameIps", ip);
-            var idrq = ini.GetSetting("NameIds", id);
-            ini.DeleteSetting("Ips", iprq);
-            ini.DeleteSetting("Ids", idrq);
-            ini.DeleteSetting("NameIps", name);
-            ini.DeleteSetting("NameIds", name);
-            ini.Save();
+            foreach (Fougerite.Player pl in Players.Where(pl => pl.Admin || pl.Moderator))
+            {
+                pl.Message(red + name + white + " was unbanned by: "
+                           + green + UnBanner + white + " Different matches: " + ids.Count);
+            }
+            if (ips.Count > 0)
+            {
+                var iptub = ips.Last();
+                DataStore.GetInstance().Remove("Ips", iptub);
+            }
+            if (ids.Count > 0)
+            {
+                var idtub = ids.Last();
+                DataStore.GetInstance().Remove("Ids", idtub);
+            }
             return true;
         }
 
         public bool UnbanByIP(string ip)
-        {
-            IniParser ini = GlobalBanList;
-            if (ini.ContainsSetting("Ips", ip))
+        { 
+            if (DataStore.GetInstance().Get("Ips", ip) != null)
             {
-                ini.DeleteSetting("Ips", ip);
-                ini.Save();
+                DataStore.GetInstance().Remove("Ips", ip);
                 return true;
             }
             return false;
@@ -135,51 +171,48 @@ namespace Fougerite
 
         public bool UnbanByID(string id)
         {
-            IniParser ini = GlobalBanList;
-            if (ini.ContainsSetting("Ids", id))
+            if (DataStore.GetInstance().Get("Ids", id) != null)
             {
-                ini.DeleteSetting("Ids", id);
-                ini.Save();
+                DataStore.GetInstance().Remove("Ids", id);
                 return true;
             }
             return false;
         }
 
-        public string ReturnACNByName(string name)
+        public List<string> FindIPsOfName(string name)
         {
-            IniParser ini = GlobalBanList;
+            var ips = DataStore.GetInstance().Keys("Ips");
             string l = name.ToLower();
-            var ips = ini.EnumSection("NameIps");
-            foreach (string ip in ips)
+            List<string> collection = new List<string>();
+            foreach (var ip in ips)
             {
-                if (l.Equals(ip.ToLower()))
-                {
-                    return ip;
-                }
+                if (DataStore.GetInstance().Get("Ips", ip) == null) { continue;}
+                if (DataStore.GetInstance().Get("Ips", ip).ToString().ToLower() == l) collection.Add(ip.ToString());
             }
-            return null;
+            return collection;
         }
 
-        public string ReturnACNByName2(string name)
+        public List<string> FindIDsOfName(string name)
         {
-            IniParser ini = GlobalBanList;
+            var ids = DataStore.GetInstance().Keys("Ids");
             string l = name.ToLower();
-            var ids = ini.EnumSection("NameIds");
-            foreach (string id in ids)
+            List<string> collection = new List<string>();
+            foreach (var id in ids)
             {
-                if (l.Equals(id.ToLower()))
-                {
-                    return id;
-                }
+                if (DataStore.GetInstance().Get("Ids", id) == null) continue;
+                if (DataStore.GetInstance().Get("Ids", id).ToString().ToLower() == l) collection.Add(id.ToString());
             }
-            return null;
+            return collection;
         }
 
         public void Broadcast(string arg)
         {
             foreach (Fougerite.Player player in this.Players)
             {
-                player.Message(arg);
+                if (player.IsOnline)
+                {
+                    player.Message(arg);
+                }
             }
         }
 
@@ -187,7 +220,10 @@ namespace Fougerite
         {
             foreach (Fougerite.Player player in this.Players)
             {
-                player.MessageFrom(name, arg);
+                if (player.IsOnline)
+                {
+                    player.MessageFrom(name, arg);
+                }
             }
         }
 
@@ -195,43 +231,73 @@ namespace Fougerite
         {
             foreach (Fougerite.Player player in this.Players)
             {
-                player.Notice(s);
+                if (player.IsOnline)
+                {
+                    player.Notice(s);
+                }
             }
+        }
+
+        public void RunServerCommand(string s)
+        {
+            ConsoleSystem.Run(s);
+        }
+
+        public Fougerite.Player FindByNetworkPlayer(uLink.NetworkPlayer np)
+        {
+            foreach (var x in Fougerite.Server.GetServer().Players)
+            {
+                if (x.PlayerClient.netPlayer == null) continue;
+                if (x.PlayerClient.netPlayer == np) return x;
+            }
+            return null;
+        }
+
+        public Fougerite.Player FindByPlayerClient(PlayerClient pc)
+        {
+            foreach (var x in Fougerite.Server.GetServer().Players)
+            {
+                if (x.PlayerClient == pc) return x;
+            }
+            return null;
         }
 
         public Fougerite.Player FindPlayer(string search)
         {
-            IEnumerable<Fougerite.Player> query;
-            if (search.StartsWith("7656119"))
+            if (search.All(char.IsDigit))
             {
                 ulong uid;
                 if (ulong.TryParse(search, out uid))
                 {
-                    query = from player in this.players
-                            where player.UID == uid
-                            select player;
-
-                    if (query.Count() == 1)
-                        return query.First();
+                    if (Cache.ContainsKey(uid))
+                    {
+                        return Cache[uid];
+                    }
+                    var flist = Players.Where(x => x.UID == uid).ToList();
+                    if (flist.Count >= 1)
+                    {
+                        return flist[0];
+                    }
                 }
                 else
                 {
-                    query = from player in this.players
-                            group player by search.Similarity(player.SteamID) into match
-                            orderby match.Key descending
-                            select match.FirstOrDefault();
-
-                    Logger.LogDebug(string.Format("[FindPlayer] search={0} matches={1}", search, string.Join(", ", query.Select(p => p.SteamID).ToArray<string>())));
-                    return query.FirstOrDefault();
+                    var flist = Players.Where(x => x.SteamID == search || x.SteamID.Contains(search)).ToList();
+                    if (flist.Count >= 1)
+                    {
+                        return flist[0];
+                    }
                 }
             }
-            query = from player in this.players
-                    group player by search.Similarity(player.Name) into match
-                    orderby match.Key descending
-                    select match.FirstOrDefault();
-
-            Logger.LogDebug(string.Format("[FindPlayer] search={0} matches={1}", search, string.Join(", ", query.Select(p => p.Name).ToArray<string>())));
-            return query.FirstOrDefault();
+            else
+            {
+                var list = Players.Where(x => x.Name.ToLower().Contains(search.ToLower()) || 
+                    string.Equals(x.Name, search, StringComparison.CurrentCultureIgnoreCase)).ToList();
+                if (list.Count >= 1)
+                {
+                    return list[0];
+                }
+            }
+            return null;
         }
 
         public static Fougerite.Server GetServer()
@@ -281,9 +347,65 @@ namespace Fougerite
         {
             get
             {
-                return this.players;
+                return this.players.Values.ToList();
             }
         }
+
+        internal void AddPlayer(ulong id, Fougerite.Player player)
+        {
+            if (!this.players.ContainsKey(id))
+            {
+                this.players.Add(id, player);
+            }
+            else
+            {
+                this.players[id] = player;
+            }
+        }
+
+        internal void RemovePlayer(ulong id)
+        {
+            if (this.players.ContainsKey(id))
+            {
+                this.players.Remove(id);
+            }
+        }
+
+        internal bool ContainsPlayer(ulong id)
+        {
+            return this.players.ContainsKey(id);
+        }
+
+        public void RestrictConsoleCommand(string cmd)
+        {
+            if (!ConsoleCommandCancelList.Contains(cmd))
+            {
+                ConsoleCommandCancelList.Add(cmd);
+            }
+        }
+
+        public void UnRestrictConsoleCommand(string cmd)
+        {
+            if (ConsoleCommandCancelList.Contains(cmd))
+            {
+                ConsoleCommandCancelList.Remove(cmd);
+            }
+        }
+
+        public void CleanRestrictedConsoleCommands()
+        {
+            ConsoleCommandCancelList.Clear();
+        }
+
+        public List<string> ConsoleCommandCancelList
+        {
+            get { return this._ConsoleCommandCancelList; }
+        }
+
+        internal Dictionary<ulong, Player> DPlayers
+        {
+            get { return this.players; }
+        } 
 
         public List<Sleeper> Sleepers
         {
@@ -295,20 +417,18 @@ namespace Fougerite
             }
         }
 
+        public string Version
+        {
+            get { return Bootstrap.Version; }
+        }
+
         /*
          *  ETC....
          */
 
         public bool HasRustPP 
         {
-            get
-            {
-                if (HRustPP)
-                {
-                    return true;
-                }
-                return false;
-            }
+            get { return HRustPP; }
         }
 
         public RustPPExtension GetRustPPAPI()
@@ -324,21 +444,11 @@ namespace Fougerite
         {
             get
             {
-                string path = Path.Combine(Util.GetRootFolder(), Path.Combine("Save", "GlobalBanList.ini"));
-                IniParser ini;
-                if (!File.Exists(path))
+                if (File.Exists(path))
                 {
-                    File.Create(path).Dispose();
-                    ini = new IniParser(path);
-                    ini.AddSetting("Ips", "0.0.0.0", "1");
-                    ini.AddSetting("Ids", "76561197998999999", "1");
-                    ini.AddSetting("NameIps", "FougeriteTest12345", "0.0.0.0");
-                    ini.AddSetting("NameIds", "FougeriteTest12345", "76561197998999999");
-                    ini.Save();
-                    return ini;
+                    return new IniParser(path);
                 }
-                ini = new IniParser(path);
-                return ini;
+                return null;
             }
         }
     }

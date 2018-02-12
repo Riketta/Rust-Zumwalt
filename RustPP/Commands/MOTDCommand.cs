@@ -7,7 +7,7 @@
     {
         public override void Execute(ref ConsoleSystem.Arg Arguments, ref string[] ChatArguments)
         {
-            Core.motd(Arguments.argUser.networkPlayer);
+            Core.motd(Fougerite.Server.Cache[Arguments.argUser.userID]);
         }
     }
 }

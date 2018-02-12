@@ -1,17 +1,18 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+﻿
+using Fougerite;
 
-namespace MagmaPlugin
+namespace MagmaModule
 {
+    using System.Collections.Generic;
+    using System.Linq;
+
     public class AdvancedTimer
     {
         public readonly Dictionary<string, MagmaTE> Timers;
         public readonly List<MagmaTE> ParallelTimers;
-        public Plugin Plugin;
+        public MagmaPlugin Plugin;
 
-        public AdvancedTimer(Plugin pl)
+        public AdvancedTimer(MagmaPlugin pl)
         {
             Plugin = pl;
             Timers = new Dictionary<string, MagmaTE>();
@@ -26,7 +27,7 @@ namespace MagmaPlugin
             if (timedEvent == null)
             {
                 timedEvent = new MagmaTE(name, (double)timeoutDelay);
-                timedEvent.OnFire += new MagmaTE.TimedEventFireDelegate(Plugin.OnTimerCB2);
+                timedEvent.OnFire += new MagmaTE.TimedEventFireDelegate(Plugin.OnTimerCB);
                 Timers.Add(name, timedEvent);
             }
             return timedEvent;
@@ -39,7 +40,7 @@ namespace MagmaPlugin
             {
                 timedEvent = new MagmaTE(name, (double)timeoutDelay);
                 timedEvent.Args = args;
-                timedEvent.OnFire += new MagmaTE.TimedEventFireDelegate(Plugin.OnTimerCB2);
+                timedEvent.OnFire += new MagmaTE.TimedEventFireDelegate(Plugin.OnTimerCB);
                 Timers.Add(name, timedEvent);
             }
             return timedEvent;
@@ -89,9 +90,8 @@ namespace MagmaPlugin
 
         public MagmaTE CreateParallelTimer(string name, int timeoutDelay, Dictionary<string, object> args)
         {
-            MagmaTE timedEvent = new MagmaTE(name, (double)timeoutDelay);
-            timedEvent.Args = args;
-            timedEvent.OnFire += new MagmaTE.TimedEventFireDelegate(Plugin.OnTimerCB2);
+            MagmaTE timedEvent = new MagmaTE(name, timeoutDelay, args);
+            timedEvent.OnFire += new MagmaTE.TimedEventFireDelegate(Plugin.OnTimerCB);
             ParallelTimers.Add(timedEvent);
             return timedEvent;
         }
