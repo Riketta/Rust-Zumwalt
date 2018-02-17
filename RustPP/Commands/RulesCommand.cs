@@ -9,16 +9,17 @@
     {
         public override void Execute(ref ConsoleSystem.Arg Arguments, ref string[] ChatArguments)
         {
+            var pl = Fougerite.Server.Cache[Arguments.argUser.userID];
             if (File.Exists(RustPPModule.GetAbsoluteFilePath("rules.txt")))
             {
                 foreach (string str in File.ReadAllLines(RustPPModule.GetAbsoluteFilePath("rules.txt")))
                 {
-                    Util.sayUser(Arguments.argUser.networkPlayer, Core.Name, str);
+                    pl.MessageFrom(Core.Name, str);
                 }
             }
             else
             {
-                Util.sayUser(Arguments.argUser.networkPlayer, Core.Name, "No rules are currently set.");
+                pl.MessageFrom(Core.Name, "No rules are currently set.");
             }
         }
     }

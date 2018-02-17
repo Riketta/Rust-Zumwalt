@@ -72,6 +72,21 @@
             return int.Parse(num);
         }
 
+        public int ToInt(double num)
+        {
+            return (int) num;
+        }
+
+        public int ToInt(float num)
+        {
+            return (int) num;
+        }
+
+        public double ToDouble(string num)
+        {
+            return double.Parse(num);
+        }
+
         public ulong ToUlong(string num)
         {
             return Convert.ToUInt64(num);
@@ -90,6 +105,21 @@
         public string ToUpper(string str)
         {
             return str.ToUpper();
+        }
+
+        public double RoundUp(double value)
+        {
+            return Math.Ceiling(value);
+        }
+
+        public double RoundDown(double value)
+        {
+            return Math.Floor(value);
+        }
+
+        public double Round(double value, bool even)
+        {
+            return Math.Round(value, even ? MidpointRounding.ToEven : MidpointRounding.AwayFromZero);
         }
     }
 }

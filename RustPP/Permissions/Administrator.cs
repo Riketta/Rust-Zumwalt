@@ -1,4 +1,6 @@
-﻿namespace RustPP.Permissions
+﻿using System.Security;
+
+namespace RustPP.Permissions
 {
     using Fougerite;
     using RustPP;
@@ -17,7 +19,8 @@
         public static string[] PermissionsFlags = new string[] { 
             "CanMute", "CanUnmute", "CanWhiteList", "CanKill", "CanKick", "CanBan", "CanUnban", "CanTeleport",
             "CanLoadout", "CanAnnounce", "CanSpawnItem", "CanGiveItem", "CanReload", "CanSaveAll", "CanAddAdmin",
-            "CanDeleteAdmin", "CanGetFlags", "CanAddFlags", "CanUnflag", "CanInstaKO", "CanGodMode", "RCON", "Moderator"
+            "CanDeleteAdmin", "CanGetFlags", "CanAddFlags", "CanUnflag", "CanInstaKO", "CanGodMode", "RCON",
+            "Moderator", "CanShutdown", "CanInstaKOAll"
         };
 
         public Administrator()
@@ -35,7 +38,7 @@
         public Administrator(ulong userID, string name, string flags)
         {
             this._userid = userID;
-            this._name = name;
+            this._name = SecurityElement.Escape(name);
             this._flags = new List<string>();
             AddFlagsToList(this._flags, flags);
         }
@@ -133,10 +136,10 @@
         {
             foreach (Administrator administrator in admins)
             {
-                NetUser user = NetUser.FindByUserID(administrator.UserID);
+                Fougerite.Player user = Fougerite.Server.GetServer().FindPlayer(administrator.UserID.ToString());
                 if (user != null)
-                {   
-                    Util.sayUser(user.networkPlayer, Core.Name + "Admins", msg);
+                {
+                    user.MessageFrom(Core.Name + "Admins", msg);
                 }
             }
         }

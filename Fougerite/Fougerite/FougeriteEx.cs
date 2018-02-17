@@ -209,22 +209,23 @@ public static class FougeriteEx
                         orderby match.Key descending
                         select match.FirstOrDefault();
 
-        if (queryName.FirstOrDefault() == null || queryName.Count() == 0)
+        var enumerable = queryName as IList<string> ?? queryName.ToList();
+        if (enumerable.FirstOrDefault() == null || enumerable.Count() == 0)
         {
             Logger.LogError(string.Format("[MatchItemName] self={0} matches=NULL", self));
             return self;
         }
 
-        Logger.LogDebug(string.Format("[MatchItemName] matches={0}", string.Join(", ", queryName.ToArray())));
+        Logger.LogDebug(string.Format("[MatchItemName] matches={0}", string.Join(", ", enumerable.ToArray())));
 
         if (self.HasBPTerm())
-            return queryName.First().Blueprint();
+            return enumerable.First().Blueprint();
 
-        return queryName.First();
+        return enumerable.First();
     }
 
-    private static readonly string BP = "BP";
-    private static readonly string BLUEPRINT = "Blueprint";
+    private const string BP = "BP";
+    private const string BLUEPRINT = "Blueprint";
 
     public static readonly IEnumerable<string> ItemWords = new string[] { "556", "Ammo", "9mm", "Pistol", "Animal", "Fat", "Anti-Radiation", "Pills", "Armor", "Part", "1", "2", "3",
         "4", "5", "6", "7", "Arrow", "Bandage", "Bed", "Blood", "Draw", "Kit", "Bolt", "Action", "Rifle", "Camp", "Fire", "Can", "of", "Beans", "Tuna", "Charcoal", "Chocolate", "Bar",
@@ -250,7 +251,7 @@ public static class FougeriteEx
         "Wood Ramp", "Wood Shelter", "Wood Stairs", "Wood Storage Box", "Wood Wall", "Wood Window", "Wood", "Wooden Door", "Workbench"
     };
 
-    private static readonly IDictionary<string, string> BlueprintNames = new Dictionary<string, string>()
+    public static readonly IDictionary<string, string> BlueprintNames = new Dictionary<string, string>()
     {
         { "556 Ammo", "Blueprint" }, { "9mm Ammo", "Blueprint" }, { "9mm Pistol", "Blueprint" }, { "Armor Part 1", "BP" }, { "Armor Part 2", "BP" }, { "Armor Part 3", "BP" }, { "Armor Part 4", "BP" },
         { "Armor Part 5", "BP" }, { "Armor Part 6", "BP" }, { "Armor Part 7", "BP" }, { "Arrow", "Blueprint" }, { "Bandage", "Blueprint" }, { "Bed", "Blueprint" }, { "Blood Draw Kit", "Blueprint" },

@@ -3,15 +3,15 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace JintPlugin
+namespace JintModule
 {
     public class AdvancedTimer
     {
         public readonly Dictionary<string, JintTE> Timers;
         public readonly List<JintTE> ParallelTimers;
-        public Plugin Plugin;
+        public JintPlugin Plugin;
 
-        public AdvancedTimer(Plugin pl)
+        public AdvancedTimer(JintPlugin pl)
         {
             Plugin = pl;
             Timers = new Dictionary<string, JintTE>();
