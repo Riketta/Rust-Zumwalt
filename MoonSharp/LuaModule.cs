@@ -25,7 +25,7 @@ namespace MoonSharpModule
         public override string Name { get { return "MoonSharp"; } }
         public override string Author { get { return "DreTaX"; } }
         public override string Description { get { return "Gives you LUA support"; } }
-        public override Version Version { get { return new Version("1.0.0.0"); } }
+        public override Version Version { get { return new Version("1.1.1.1"); } }
         private static LuaModule instance;
 
         public static void ConsoleReceived(ref ConsoleSystem.Arg arg, bool external)
@@ -137,17 +137,16 @@ namespace MoonSharpModule
                 LuaPlugin plugin = new LuaPlugin(name, code, path);
                 InstallHooks(plugin);
                 plugins.Add(name, plugin);
-                if (plugin.Globals.Contains("On_PluginInit"))
+                GlobalPluginCollector.GetPluginCollector().AddPlugin(name, plugin, "Lua");
+                Logger.Log("[MoonSharp] " + name + " plugin by " + plugin.Author + " V" + plugin.Version + " was loaded successfully.");
+                if (!string.IsNullOrEmpty(plugin.About))
                 {
-                    plugin.Invoke("On_PluginInit", new object[0]);
+                    Logger.Log("[MoonSharp] Description: " + plugin.About);
                 }
-                Logger.Log("[MoonSharp] " + name + " plugin was loaded successfuly.");
             }
             catch (Exception ex)
             {
-                string arg = name + " plugin could not be loaded.";
-                Server.GetServer().BroadcastFrom(Name, arg);
-                Logger.LogError(arg);
+                Logger.LogError("[MoonSharp] " + name + " couldn't be loaded.");
                 Logger.LogException(ex);
             }
         }
@@ -159,12 +158,13 @@ namespace MoonSharpModule
             if (plugins.ContainsKey(name))
             {
                 LuaPlugin plugin = plugins[name];
-
+                plugin.OnPluginShutdown();
                 plugin.KillTimers();
                 RemoveHooks(plugin);
+                GlobalPluginCollector.GetPluginCollector().RemovePlugin(name);
                 if (removeFromDict) plugins.Remove(name);
 
-                Logger.LogDebug("[MoonSharp] " + name + " plugin was unloaded successfuly.");
+                Logger.Log("[MoonSharp] " + name + " plugin was unloaded successfully.");
             }
             else
             {
@@ -225,8 +225,6 @@ namespace MoonSharpModule
             LoadPlugins();
         }
 
-        //private static List<String> asd = new List<string> {("CanOpenDoor", )}; 
-
         private void InstallHooks(LuaPlugin plugin)
         {
             foreach (string method in plugin.Globals)
@@ -252,7 +250,7 @@ namespace MoonSharpModule
                     case "On_EntityHurt": Hooks.OnEntityHurt += new Hooks.EntityHurtDelegate(plugin.OnEntityHurt); break;
                     case "On_EntityDecay": Hooks.OnEntityDecay += new Hooks.EntityDecayDelegate(plugin.OnEntityDecay); break;
                     case "On_EntityDestroyed": Hooks.OnEntityDestroyed += new Hooks.EntityDestroyedDelegate(plugin.OnEntityDestroyed); break;
-                    case "On_EntityDeployed": Hooks.OnEntityDeployed += new Hooks.EntityDeployedDelegate(plugin.OnEntityDeployed); break;
+                    case "On_EntityDeployed": Hooks.OnEntityDeployedWithPlacer += new Hooks.EntityDeployedWithPlacerDelegate(plugin.OnEntityDeployed); break;
                     case "On_NPCHurt": Hooks.OnNPCHurt += new Hooks.HurtHandlerDelegate(plugin.OnNPCHurt); break;
                     case "On_NPCKilled": Hooks.OnNPCKilled += new Hooks.KillHandlerDelegate(plugin.OnNPCKilled); break;
                     case "On_BlueprintUse": Hooks.OnBlueprintUse += new Hooks.BlueprintUseHandlerDelegate(plugin.OnBlueprintUse); break;
@@ -265,32 +263,20 @@ namespace MoonSharpModule
                     case "On_ItemAdded": Hooks.OnItemAdded += new Hooks.ItemAddedDelegate(plugin.OnItemAdded); break;
                     case "On_ItemRemoved": Hooks.OnItemRemoved += new Hooks.ItemRemovedDelegate(plugin.OnItemRemoved); break;
                     case "On_Airdrop": Hooks.OnAirdropCalled += new Hooks.AirdropDelegate(plugin.OnAirdrop); break;
+                    //case "On_AirdropCrateDropped": Hooks.OnAirdropCrateDropped += new Hooks.AirdropCrateDroppedDelegate(plugin.OnAirdropCrateDropped); break;
                     case "On_SteamDeny": Hooks.OnSteamDeny += new Hooks.SteamDenyDelegate(plugin.OnSteamDeny); break;
                     case "On_PlayerApproval": Hooks.OnPlayerApproval += new Hooks.PlayerApprovalDelegate(plugin.OnPlayerApproval); break;
                     case "On_Research": Hooks.OnResearch += new Hooks.ResearchDelegate(plugin.OnResearch); break;
-                    //TODO: Oxide Hook Names
-                    /*case "Init": plugin.Invoke("Init", new object[0]); break;
-                    //case "ModifyDamage": Hooks.OnDoorUse += new Hooks.DoorOpenHandlerDelegate(plugin); break;
-                    case "OnBlueprintUse": Hooks.OnBlueprintUse += new Hooks.BlueprintUseHandlerDelegate(plugin.OnBlueprintUseOxide); break;
-                    case "OnDatablocksLoaded": Hooks.OnTablesLoaded += new Hooks.LootTablesLoaded(plugin.OnTablesLoaded); break;
-                    //case "OnDoorToggle": Hooks.OnDoorUse += new Hooks.DoorOpenHandlerDelegate(plugin); break;
-                    //case "OnHurt": Hooks.Hu += new Hooks.DoorOpenHandlerDelegate(plugin); break;
-                    case "OnItemAdded": Hooks.OnItemAdded += new Hooks.ItemAddedDelegate(plugin); break;
-                    case "OnItemRemoved": Hooks.OnItemRemoved += new Hooks.ItemRemovedDelegate(plugin); break;
-                    //case "OnKilled": Hooks.OnDoorUse += new Hooks.DoorOpenHandlerDelegate(plugin); break;
-                    case "OnPlaceStructure": Hooks.OnEntityDeployed += new Hooks.EntityDeployedDelegate(plugin); break;
-                    //case "OnResearchItem": Hooks.OnDoorUse += new Hooks.DoorOpenHandlerDelegate(plugin); break;
-                    case "OnResourceNodeLoaded": Hooks.OnResourceSpawned += new Hooks.ResourceSpawnDelegate(plugin); break;
-                    case "OnRunCommand": Hooks.OnConsoleReceived += new Hooks.ConsoleHandlerDelegate(plugin); break;
-                    case "OnServerInitialized": Hooks.OnServerInit += new Hooks.ServerInitDelegate(plugin); break;
-                    case "OnSpawnPlayer": Hooks.OnPlayerSpawned += new Hooks.PlayerSpawnHandlerDelegate(plugin); break;
-                    case "OnStartCrafting": Hooks.OnCrafting += new Hooks.CraftingDelegate(plugin); break;
-                    case "OnStructureDecay": Hooks.OnEntityDecay += new Hooks.EntityDecayDelegate(plugin); break;
-                    case "OnUserApprove": Hooks.OnPlayerApproval += new Hooks.PlayerApprovalDelegate(plugin); break;
-                    case "OnUserChat": Hooks.OnChat += new Hooks.ChatHandlerDelegate(plugin); break;
-                    case "OnUserConnect": Hooks.OnPlayerConnected += new Hooks.ConnectionHandlerDelegate(plugin); break;
-                    case "OnUserDisconnect": Hooks.OnPlayerDisconnected += new Hooks.DisconnectionHandlerDelegate(plugin); break;
-                    case "PostInit": LuaModule.OnAllLoaded += new LuaModule.AllLoadedDelegate(plugin.OnAllPluginsLoaded); break;*/
+                    case "On_ServerSaved": Hooks.OnServerSaved += new Hooks.ServerSavedDelegate(plugin.OnServerSaved); break;
+                    case "On_VoiceChat": Hooks.OnShowTalker += new Hooks.ShowTalkerDelegate(plugin.OnShowTalker); break;
+                    case "On_ItemPickup": Hooks.OnItemPickup += new Hooks.ItemPickupDelegate(plugin.OnItemPickup); break;
+                    case "On_FallDamage": Hooks.OnFallDamage += new Hooks.FallDamageDelegate(plugin.OnFallDamage); break;
+                    case "On_LootUse": Hooks.OnLootUse += new Hooks.LootEnterDelegate(plugin.OnLootUse); break;
+                    case "On_PlayerBan": Hooks.OnPlayerBan += new Hooks.BanEventDelegate(plugin.OnBanEvent); break;
+                    case "On_RepairBench": Hooks.OnRepairBench += new Hooks.RepairBenchEventDelegate(plugin.OnRepairBench); break;
+                    case "On_ItemMove": Hooks.OnItemMove += new Hooks.ItemMoveEventDelegate(plugin.OnItemMove); break;
+                    case "On_GenericSpawnLoad": Hooks.OnGenericSpawnerLoad += new Hooks.GenericSpawnerLoadDelegate(plugin.OnGenericSpawnLoad); break;
+                    case "On_ServerLoaded": Hooks.OnServerLoaded += new Hooks.ServerLoadedDelegate(plugin.OnServerLoaded); break;
                 }
             }
         }
@@ -322,7 +308,7 @@ namespace MoonSharpModule
                     case "On_EntityHurt": Hooks.OnEntityHurt -= new Hooks.EntityHurtDelegate(plugin.OnEntityHurt); break;
                     case "On_EntityDecay": Hooks.OnEntityDecay -= new Hooks.EntityDecayDelegate(plugin.OnEntityDecay); break;
                     case "On_EntityDestroyed": Hooks.OnEntityDestroyed -= new Hooks.EntityDestroyedDelegate(plugin.OnEntityDestroyed); break;
-                    case "On_EntityDeployed": Hooks.OnEntityDeployed -= new Hooks.EntityDeployedDelegate(plugin.OnEntityDeployed); break;
+                    case "On_EntityDeployed": Hooks.OnEntityDeployedWithPlacer -= new Hooks.EntityDeployedWithPlacerDelegate(plugin.OnEntityDeployed); break;
                     case "On_NPCHurt": Hooks.OnNPCHurt -= new Hooks.HurtHandlerDelegate(plugin.OnNPCHurt); break;
                     case "On_NPCKilled": Hooks.OnNPCKilled -= new Hooks.KillHandlerDelegate(plugin.OnNPCKilled); break;
                     case "On_BlueprintUse": Hooks.OnBlueprintUse -= new Hooks.BlueprintUseHandlerDelegate(plugin.OnBlueprintUse); break;
@@ -334,9 +320,20 @@ namespace MoonSharpModule
                     case "On_ItemAdded": Hooks.OnItemAdded -= new Hooks.ItemAddedDelegate(plugin.OnItemAdded); break;
                     case "On_ItemRemoved": Hooks.OnItemRemoved -= new Hooks.ItemRemovedDelegate(plugin.OnItemRemoved); break;
                     case "On_Airdrop": Hooks.OnAirdropCalled -= new Hooks.AirdropDelegate(plugin.OnAirdrop); break;
+                    //case "On_AirdropCrateDropped": Hooks.OnAirdropCrateDropped -= new Hooks.AirdropCrateDroppedDelegate(plugin.OnAirdropCrateDropped); break;
                     case "On_SteamDeny": Hooks.OnSteamDeny -= new Hooks.SteamDenyDelegate(plugin.OnSteamDeny); break;
                     case "On_PlayerApproval": Hooks.OnPlayerApproval -= new Hooks.PlayerApprovalDelegate(plugin.OnPlayerApproval); break;
                     case "On_Research": Hooks.OnResearch -= new Hooks.ResearchDelegate(plugin.OnResearch); break;
+                    case "On_ServerSaved": Hooks.OnServerSaved -= new Hooks.ServerSavedDelegate(plugin.OnServerSaved); break;
+                    case "On_VoiceChat": Hooks.OnShowTalker -= new Hooks.ShowTalkerDelegate(plugin.OnShowTalker); break;
+                    case "On_ItemPickup": Hooks.OnItemPickup -= new Hooks.ItemPickupDelegate(plugin.OnItemPickup); break;
+                    case "On_FallDamage": Hooks.OnFallDamage -= new Hooks.FallDamageDelegate(plugin.OnFallDamage); break;
+                    case "On_LootUse": Hooks.OnLootUse -= new Hooks.LootEnterDelegate(plugin.OnLootUse); break;
+                    case "On_PlayerBan": Hooks.OnPlayerBan -= new Hooks.BanEventDelegate(plugin.OnBanEvent); break;
+                    case "On_RepairBench": Hooks.OnRepairBench -= new Hooks.RepairBenchEventDelegate(plugin.OnRepairBench); break;
+                    case "On_ItemMove": Hooks.OnItemMove -= new Hooks.ItemMoveEventDelegate(plugin.OnItemMove); break;
+                    case "On_GenericSpawnLoad": Hooks.OnGenericSpawnerLoad -= new Hooks.GenericSpawnerLoadDelegate(plugin.OnGenericSpawnLoad); break;
+                    case "On_ServerLoaded": Hooks.OnServerLoaded -= new Hooks.ServerLoadedDelegate(plugin.OnServerLoaded); break;
                 }
             }
         }

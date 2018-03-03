@@ -3,7 +3,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text.RegularExpressions;
 using Fougerite;
 using Fougerite.Events;
 using MoonSharp.Interpreter;
@@ -17,6 +16,9 @@ namespace MoonSharpModule
         public readonly string Name;
         public readonly string Code;
         public readonly object Class;
+        public readonly string Author;
+        public readonly string Version;
+        public readonly string About;
         public readonly DirectoryInfo RootDir;
         public readonly IList<string> Globals;
         public readonly Table Tables;
@@ -43,31 +45,38 @@ namespace MoonSharpModule
             script.Globals.Set("Data", UserData.Create(Fougerite.Data.GetData()));
             script.Globals.Set("Web", UserData.Create(new Fougerite.Web()));
             script.Globals.Set("World", UserData.Create(Fougerite.World.GetWorld()));
+            script.Globals.Set("PluginCollector", UserData.Create(GlobalPluginCollector.GetPluginCollector()));
+            script.Globals.Set("Loom", UserData.Create(Loom.Current));
+            script.Globals.Set("JSON", UserData.Create(JsonAPI.GetInstance));
+            script.Globals.Set("MySQL", UserData.Create(MySQLConnector.GetInstance));
+            script.Globals.Set("SQLite", UserData.Create(Fougerite.SQLiteConnector.GetInstance));
             foreach (DynValue v in script.Globals.Keys)
             {
                 Globals.Add(v.ToString().Replace('"'.ToString(), ""));
             }
+            Author = string.IsNullOrEmpty(script.Globals.Get("Author").String) ? "Unknown" : script.Globals.Get("Author").String;
+            Version = string.IsNullOrEmpty(script.Globals.Get("Version").String) ? "1.0" : script.Globals.Get("Version").String;
+            About = script.Globals.Get("About").String;
             Tables = script.Globals;
         }
 
-        public void Invoke(string func, params object[] obj)
+        public object Invoke(string func, params object[] obj)
         {
             try
             {
                 DynValue luaFactFunction = script.Globals.Get(func);
                 if (luaFactFunction != null)
                 {
-                    script.Call(luaFactFunction, obj);
+                    return script.Call(luaFactFunction, obj);
                 }
-                else
-                {
-                    Fougerite.Logger.LogError("[MoonSharp] Function: " + func + " not found in plugin: " + Name);
-                }
+                Fougerite.Logger.LogDebug("[MoonSharp] Function: " + func + " not found in plugin: " + Name);
             }
             catch (Exception ex)
             {
-                Fougerite.Logger.LogError("Invoke failed: " + ex.ToString());
+                Fougerite.Logger.LogError("[MoonSharp] Error in plugin " + Name + ":");
+                Fougerite.Logger.LogError("[MoonSharp] Invoke failed: " + ex.ToString());
             }
+            return null;
         }
 
         public void OnTablesLoaded(Dictionary<string, LootSpawnList> tables)
@@ -122,9 +131,21 @@ namespace MoonSharpModule
             this.Invoke("On_EntityDecay", new object[] { evt });
         }
 
-        public void OnEntityDeployed(Fougerite.Player player, Entity entity)
+        public void OnEntityDeployed(Fougerite.Player player, Entity entity, Fougerite.Player actualplacer)
         {
-            this.Invoke("On_EntityDeployed", new object[] { player, entity });
+            try
+            {
+                DynValue luaFactFunction = script.Globals.Get("On_EntityDeployed");
+                if (luaFactFunction != null)
+                {
+                    script.Call(luaFactFunction, new object[] {player, entity, actualplacer});
+                }
+            }
+            catch(Exception ex)
+            {
+                Logger.LogError("lua: " + ex);
+                this.Invoke("On_EntityDeployed", new object[] {player, entity});
+            }
         }
 
         public void OnEntityDestroyed(DestroyEvent evt)
@@ -207,6 +228,11 @@ namespace MoonSharpModule
             this.Invoke("On_ServerShutdown", new object[0]);
         }
 
+        public void OnServerSaved()
+        {
+            this.Invoke("On_ServerSaved", new object[0]);
+        }
+
         public void OnCrafting(CraftingEvent e)
         {
             this.Invoke("On_Crafting", new object[] { e });
@@ -222,6 +248,11 @@ namespace MoonSharpModule
             this.Invoke("On_ItemAdded", new object[] { e });
         }
 
+        public void OnShowTalker(uLink.NetworkPlayer np, Fougerite.Player player)
+        {
+            this.Invoke("On_VoiceChat", np, player);
+        }
+
         /*public void OnItemAddedOxide(InventoryModEvent e)
         {
             this.Invoke("OnItemAdded", new object[] { e.Inventory, e.Slot, e.Item });
@@ -230,6 +261,16 @@ namespace MoonSharpModule
         public void OnItemRemoved(InventoryModEvent e)
         {
             this.Invoke("On_ItemRemoved", new object[] { e });
+        }
+
+        public void OnItemPickup(ItemPickupEvent e)
+        {
+            this.Invoke("On_ItemPickup", new object[] { e });
+        }
+
+        public void OnFallDamage(FallDamageEvent e)
+        {
+            this.Invoke("On_FallDamage", new object[] { e });
         }
 
         /*public void OnItemRemovedOxide(InventoryModEvent e)
@@ -242,6 +283,11 @@ namespace MoonSharpModule
             this.Invoke("On_Airdrop", new object[] { v });
         }
 
+        /*public void OnAirdropCrateDropped(GameObject go)
+        {
+            this.Invoke("On_AirdropCrateDropped", new object[] { new Entity(go) });
+        }*/
+
         public void OnSteamDeny(SteamDenyEvent e)
         {
             this.Invoke("On_SteamDeny", new object[] { e });
@@ -250,6 +296,41 @@ namespace MoonSharpModule
         public void OnPlayerApproval(PlayerApprovalEvent e)
         {
             this.Invoke("On_PlayerApproval", new object[] { e });
+        }
+
+        public void OnPluginShutdown()
+        {
+            this.Invoke("On_PluginShutdown", new object[0]);
+        }
+
+        public void OnLootUse(LootStartEvent le)
+        {
+            this.Invoke("On_LootUse", new object[] { le });
+        }
+
+        public void OnBanEvent(BanEvent be)
+        {
+            this.Invoke("On_PlayerBan", new object[] { be });
+        }
+   
+        public void OnRepairBench(Fougerite.Events.RepairEvent be)
+        {
+            this.Invoke("On_RepairBench", new object[] { be });
+        }
+
+        public void OnItemMove(ItemMoveEvent be)
+        {
+            this.Invoke("On_ItemMove", new object[] { be });
+        }
+        
+        public void OnGenericSpawnLoad(GenericSpawner gs)
+        {
+            this.Invoke("On_GenericSpawnLoad", new object[] { gs });
+        }
+        
+        public void OnServerLoaded()
+        {
+            this.Invoke("On_ServerLoaded");
         }
 
         public void OnTimerCB(MoonSharpTE evt)
@@ -303,9 +384,9 @@ namespace MoonSharpModule
 
             File.AppendAllText(path, "[" + DateTime.Now.ToShortDateString() + " " + DateTime.Now.ToString("HH:mm:ss") + "] " + text + "\r\n");
             FileInfo fi = new FileInfo(path);
-            float mega = (fi.Length / 1024f) / 1024f;
             if (fi.Exists)
             {
+                float mega = (fi.Length / 1024f) / 1024f;
                 if (mega > 1.0)
                 {
                     try
@@ -375,7 +456,7 @@ namespace MoonSharpModule
         public LuaPlugin GetPlugin(string name)
         {
             LuaPlugin plugin;
-            plugin = LuaModule.Plugins[name];
+            LuaModule.Plugins.TryGetValue(name, out plugin);
             if (plugin == null)
             {
                 Logger.LogDebug("[MoonSharp] [GetPlugin] '" + name + "' plugin not found!");
@@ -509,6 +590,11 @@ namespace MoonSharpModule
         public Dictionary<string, object> CreateDict()
         {
             return new Dictionary<string, object>();
+        }
+
+        public List<string> CreateList()
+        {
+            return new List<string>();
         }
 
         private string getBetween(string strSource, string strStart, string strEnd)

@@ -63,6 +63,7 @@
     <Compile Include="Commands\RulesCommand.cs" />
     <Compile Include="Commands\SaveAllCommand.cs" />
     <Compile Include="Commands\ShareCommand.cs" />
+    <Compile Include="Commands\ShutDownCommand.cs" />
     <Compile Include="Commands\SpawnItemCommand.cs" />
     <Compile Include="Commands\StarterCommand.cs" />
     <Compile Include="Commands\TeleportHereCommand.cs" />
@@ -75,6 +76,7 @@
     <Compile Include="Core.cs" />
     <Compile Include="Helper.cs" />
     <Compile Include="Hooks.cs" />
+    <Compile Include="Commands\InstaKOAllCommand.cs" />
     <Compile Include="Permissions\Administrator.cs" />
     <Compile Include="PList.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

@@ -5,10 +5,10 @@ namespace Fougerite.Events
 
     public class PlayerApprovalEvent
     {
-        private ConnectionAcceptor _ca;
-        private NetworkPlayerApproval _approval;
-        private ClientConnection _cc;
-        private bool _deny;
+        private readonly ConnectionAcceptor _ca;
+        private readonly NetworkPlayerApproval _approval;
+        private readonly ClientConnection _cc;
+        private readonly bool _deny;
         private bool _ForceAccept = false;
 
         public PlayerApprovalEvent(ConnectionAcceptor ca, NetworkPlayerApproval approval, ClientConnection cc, bool AboutToDeny)
@@ -49,7 +49,7 @@ namespace Fougerite.Events
         {
             get
             {
-                if (Fougerite.Server.Cache[_cc.UserID] != null)
+                if (Fougerite.Server.Cache.ContainsKey(_cc.UserID))
                 {
                     return Fougerite.Server.Cache[_cc.UserID].IsOnline;
                 }

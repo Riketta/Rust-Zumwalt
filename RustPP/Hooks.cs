@@ -1,5 +1,4 @@
-﻿using Fougerite.Events;
-
+﻿
 namespace RustPP
 {
     using Fougerite;
@@ -7,6 +6,9 @@ namespace RustPP
     using RustPP.Permissions;
     using RustPP.Social;
     using System.Collections;
+    using System.Linq;
+    using System.Security;
+    using Fougerite.Events;
 
     internal class Hooks
     {
@@ -15,14 +17,15 @@ namespace RustPP
             if (Core.config.GetBoolSetting("Settings", "pvp_death_broadcast"))
             {
                 char ch = '⊕';
-                Util.sayAll(Core.Name, killer + " " + ch.ToString() + " " + victim + " (" + weapon + ")");
+                Server.GetServer().BroadcastFrom(Core.Name, killer + " " + ch.ToString() + " " + victim + " (" + weapon + ")");
             }
         }
 
         public static bool checkOwner(DeployableObject obj, Controllable controllable)
         {
             bool flag;
-            if (obj.ownerID == controllable.playerClient.userID)
+            Fougerite.Player pl = Fougerite.Server.Cache[controllable.playerClient.userID];
+            if (obj.ownerID == pl.UID)
             {
                 flag = true;
             }
@@ -38,7 +41,7 @@ namespace RustPP
                 {
                     flag = false;
                 }
-                if (list.Contains(controllable.playerClient.userID))
+                if (list.Contains(pl.UID))
                 {
                     flag = true;
                 }
@@ -80,44 +83,40 @@ namespace RustPP
 
         public static bool IsFriend(HurtEvent e) // ref
         {
-            //Server.GetServer().Broadcast("1");
             GodModeCommand command = (GodModeCommand)ChatCommand.GetCommand("god");
-            //Server.GetServer().Broadcast("2");
-            //Server.GetServer().Broadcast("2 " + command.IsOn(e.victim.userID));
-            Fougerite.Player victim = Fougerite.Server.Cache[e.DamageEvent.victim.userID];
+            Fougerite.Player victim = e.Victim as Fougerite.Player;
             if (victim != null)
             {
                 if (command.IsOn(victim.UID))
                 {
-                    //Server.GetServer().Broadcast("3");
+                    FallDamage dmg = victim.FallDamage;
+                    if (dmg != null)
+                    {
+                        dmg.ClearInjury();
+                    }
                     return true;
                 }
-                //Server.GetServer().Broadcast("4");
-                Fougerite.Player attacker = Fougerite.Server.Cache[e.DamageEvent.attacker.userID];
+                Fougerite.Player attacker = e.Attacker as Fougerite.Player;
                 if (attacker != null)
                 {
                     FriendsCommand command2 = (FriendsCommand) ChatCommand.GetCommand("friends");
+                    if (command2.ContainsException(attacker.UID) && command2.ContainsException(victim.UID))
+                    {
+                        return false;
+                    }
                     bool b = Core.config.GetBoolSetting("Settings", "friendly_fire");
-                    //Server.GetServer().Broadcast("5 " + b);
                     try
                     {
-                        //Server.GetServer().Broadcast("6");
                         FriendList list = (FriendList) command2.GetFriendsLists()[attacker.UID];
-                        //Server.GetServer().Broadcast("7 " + list);
-                        if (list == null || b ||
-                            (DataStore.GetInstance().ContainsKey("HGIG", attacker.SteamID)
-                             && DataStore.GetInstance().ContainsKey("HGIG", victim.SteamID)))
+                        if (list == null || b)
                         {
-                            //Server.GetServer().Broadcast("8");
                             return false;
                         }
-                        //Server.GetServer().Broadcast("9");
                         return list.isFriendWith(victim.UID);
                     }
                     catch
                     {
-                        //Server.GetServer().Broadcast("end");
-                        return command.IsOn(victim.UID);
+                        return false;
                     }
                 }
             }
@@ -129,41 +128,39 @@ namespace RustPP
             return Core.config.GetBoolSetting("Settings", "keepitems");
         }
 
-        public static bool loginNotice(NetUser user)
+        public static bool loginNotice(Fougerite.Player pl)
         {
             try
             {
-                if (Core.blackList.Contains(user.userID))
+                if (Core.blackList.Contains(pl.UID))
                 {
-                    Core.tempConnect.Add(user.userID);
-                    user.Kick(NetError.Facepunch_Kick_Ban, true);
+                    Core.tempConnect.Add(pl.UID);
+                    pl.Disconnect();
                     return false;
                 }
-                if (Core.config.GetBoolSetting("WhiteList", "enabled") && !Core.whiteList.Contains(user.userID))
+                if (Core.config.GetBoolSetting("WhiteList", "enabled") && !Core.whiteList.Contains(pl.UID))
                 {
-                    user.Kick(NetError.Facepunch_Whitelist_Failure, true);
+                    pl.Disconnect();
+                    return false;
                 }
-                if (!Core.userCache.ContainsKey(user.userID))
+                if (!Core.userCache.ContainsKey(pl.UID))
                 {
-                    Core.userCache.Add(user.userID, user.displayName);
+                    Core.userCache.Add(pl.UID, SecurityElement.Escape(pl.Name));
                 }
-                else if (user.displayName != Core.userCache[user.userID])
+                else if (pl.Name != Core.userCache[pl.UID])
                 {
-                    Core.userCache[user.userID] = user.displayName;
+                    Core.userCache[pl.UID] = SecurityElement.Escape(pl.Name);
                 }
-                if (Administrator.IsAdmin(user.userID) && Administrator.GetAdmin(user.userID).HasPermission("RCON"))
+                if (Administrator.IsAdmin(pl.UID) && Administrator.GetAdmin(pl.UID).HasPermission("RCON"))
                 {
-                    user.admin = true;
+                    pl.PlayerClient.netUser.admin = true;
                 }
-                Core.motd(user.networkPlayer);
+                Core.motd(pl);
                 if (Core.config.GetBoolSetting("Settings", "join_notice"))
                 {
-                    foreach (PlayerClient client in PlayerClient.All)
+                    foreach (var client in Fougerite.Server.GetServer().Players.Where(client => client.UID != pl.UID))
                     {
-                        if (client.userID != user.userID)
-                        {
-                            Util.sayUser(client.netPlayer, Core.Name, user.displayName + " " + RustPPModule.JoinMsg);
-                        }
+                        client.MessageFrom(Core.Name, pl.Name + " " + RustPPModule.JoinMsg);
                     }
                 }
             }
@@ -183,12 +180,9 @@ namespace RustPP
                 }
                 else if (Core.config.GetBoolSetting("Settings", "leave_notice"))
                 {
-                    foreach (PlayerClient client in PlayerClient.All)
+                    foreach (var client in Fougerite.Server.GetServer().Players.Where(client => client.UID != user.UID))
                     {
-                        if (client.userID != user.UID)
-                        {
-                            Util.sayUser(client.netPlayer, Core.Name, user.Name + " " + RustPPModule.LeaveMsg);
-                        }
+                        client.MessageFrom(Core.Name, user.Name + " " + RustPPModule.LeaveMsg);
                     }
                 }
             }

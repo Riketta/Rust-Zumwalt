@@ -139,17 +139,18 @@ namespace IronPythonModule
 
 			if (plugins.ContainsKey(name)) {
 				Logger.LogError("[IPModule] " + name + " plugin is already loaded.");
-				throw new InvalidOperationException("[IPModule] " + name + " plugin is already loaded.");
+			    return;
+			    //throw new InvalidOperationException("[IPModule] " + name + " plugin is already loaded.");
 			}
 
 			try 
             {
 				string code = GetPluginScriptText(name);
                 string[] lines = code.Split(new string[] { "\r\n", "\n" }, StringSplitOptions.None);
-				DirectoryInfo path = new DirectoryInfo(Path.Combine(pluginDirectory.FullName, name));
-				IPPlugin plugin = new IPPlugin(name, code, path);
+                DirectoryInfo path = new DirectoryInfo(Path.Combine(pluginDirectory.FullName, name));
+                IPPlugin plugin = new IPPlugin(name, code, path);
                 InstallHooks(plugin);
-			    string cmdname = null;
+                string cmdname = null;
                 bool d = false, f = false;
                 foreach (string line in lines)
                 {
@@ -170,10 +171,10 @@ namespace IronPythonModule
                             {
                                 if (!d && f)
                                 {
-                                    Logger.LogWarning("I detected the usage of custom commands in: " + plugin.Name);
-                                    Logger.LogWarning("Make sure you add the commands manually to: Plugin.CommandList");
-                                    Logger.LogWarning("Example: Plugin.CommandList.Add(ini.GetSetting(...))");
-                                    Logger.LogWarning("If you have questions go to www.fougerite.com !");
+                                    Logger.LogDebug("I detected the usage of custom commands in: " + plugin.Name);
+                                    Logger.LogDebug("Make sure you add the commands manually to: Plugin.CommandList");
+                                    Logger.LogDebug("Example: Plugin.CommandList.Add(ini.GetSetting(...))");
+                                    Logger.LogDebug("If you have questions go to www.fougerite.com !");
                                     d = true;
                                 }
                                 continue;
@@ -192,10 +193,10 @@ namespace IronPythonModule
                             {
                                 if (!d && f)
                                 {
-                                    Logger.LogWarning("I detected the usage of custom commands in " + plugin.Name);
-                                    Logger.LogWarning("Make sure you add the commands manually to: Plugin.CommandList");
-                                    Logger.LogWarning("Example: Plugin.CommandList.Add(ini.GetSetting(...))");
-                                    Logger.LogWarning("If you have questions go to www.fougerite.com !");
+                                    Logger.LogDebug("I detected the usage of custom commands in " + plugin.Name);
+                                    Logger.LogDebug("Make sure you add the commands manually to: Plugin.CommandList");
+                                    Logger.LogDebug("Example: Plugin.CommandList.Add(ini.GetSetting(...))");
+                                    Logger.LogDebug("If you have questions go to www.fougerite.com !");
                                     d = true;
                                 }
                                 continue;
@@ -219,12 +220,16 @@ namespace IronPythonModule
                 }
                 if (d) { plugin.CommandList.Clear(); }
 				plugins.Add(name, plugin);
+                GlobalPluginCollector.GetPluginCollector().AddPlugin(name, plugin, "Python");
 
-				Logger.Log("[IPModule] " + name + " plugin was loaded successfuly.");
+                Logger.Log("[IPModule] " + name + " plugin by " + plugin.Author + " V" + plugin.Version + " was loaded successfully.");
+                if (!string.IsNullOrEmpty(plugin.About))
+                {
+                    Logger.Log("[IPModule] Description: " + plugin.About);
+                }
 			} catch (Exception ex) {
-				string arg = name + " plugin could not be loaded.";
-				Server.GetServer().BroadcastFrom(Name, arg);
-				Logger.LogException(ex);
+                Logger.LogError("[IPModule] " + name + " plugin could not be loaded.");
+                Logger.LogException(ex);
 			}
 		}
 
@@ -233,19 +238,15 @@ namespace IronPythonModule
 
 			if (plugins.ContainsKey(name)) {
 				IPPlugin plugin = plugins[name];
-			    if (plugin.Globals.Contains("On_PluginShutdown"))
-			    {
-                    plugin.Engine.Operations.InvokeMember(plugin.Class, "On_PluginShutdown", new object[0]);
-			    }
-			    plugin.OnPluginShutdown();
+                plugin.OnPluginShutdown();
 				plugin.KillTimers();
 				RemoveHooks(plugin);
 				if (removeFromDict) plugins.Remove(name);
-
-				Logger.LogDebug("[IPModule] " + name + " plugin was unloaded successfuly.");
+                GlobalPluginCollector.GetPluginCollector().RemovePlugin(name);
+                Logger.Log("[IPModule] " + name + " plugin was unloaded successfully.");
 			} else {
 				Logger.LogError("[IPModule] Can't unload " + name + ". Plugin is not loaded.");
-				throw new InvalidOperationException("[IPModule] Can't unload " + name + ". Plugin is not loaded.");
+				//throw new InvalidOperationException("[IPModule] Can't unload " + name + ". Plugin is not loaded.");
 			}
 		}
 
@@ -295,7 +296,7 @@ namespace IronPythonModule
 				case "On_EntityHurt": Hooks.OnEntityHurt += new Hooks.EntityHurtDelegate(plugin.OnEntityHurt); break;
 				case "On_EntityDecay": Hooks.OnEntityDecay += new Hooks.EntityDecayDelegate(plugin.OnEntityDecay); break;
 				case "On_EntityDestroyed": Hooks.OnEntityDestroyed += new Hooks.EntityDestroyedDelegate(plugin.OnEntityDestroyed); break;
-				case "On_EntityDeployed": Hooks.OnEntityDeployed += new Hooks.EntityDeployedDelegate(plugin.OnEntityDeployed); break;
+				case "On_EntityDeployed": Hooks.OnEntityDeployedWithPlacer += new Hooks.EntityDeployedWithPlacerDelegate(plugin.OnEntityDeployed); break;
 				case "On_NPCHurt": Hooks.OnNPCHurt += new Hooks.HurtHandlerDelegate(plugin.OnNPCHurt); break;
 				case "On_NPCKilled": Hooks.OnNPCKilled += new Hooks.KillHandlerDelegate(plugin.OnNPCKilled); break;
 				case "On_BlueprintUse": Hooks.OnBlueprintUse += new Hooks.BlueprintUseHandlerDelegate(plugin.OnBlueprintUse); break;
@@ -308,10 +309,21 @@ namespace IronPythonModule
                 case "On_ItemAdded": Hooks.OnItemAdded += new Hooks.ItemAddedDelegate(plugin.OnItemAdded); break;
                 case "On_ItemRemoved": Hooks.OnItemRemoved += new Hooks.ItemRemovedDelegate(plugin.OnItemRemoved); break;
                 case "On_Airdrop": Hooks.OnAirdropCalled += new Hooks.AirdropDelegate(plugin.OnAirdrop); break;
+                //case "On_AirdropCrateDropped": Hooks.OnAirdropCrateDropped += new Hooks.AirdropCrateDroppedDelegate(plugin.OnAirdropCrateDropped); break;
                 case "On_SteamDeny": Hooks.OnSteamDeny += new Hooks.SteamDenyDelegate(plugin.OnSteamDeny); break;
                 case "On_PlayerApproval": Hooks.OnPlayerApproval += new Hooks.PlayerApprovalDelegate(plugin.OnPlayerApproval); break;
                 case "On_Research": Hooks.OnResearch += new Hooks.ResearchDelegate(plugin.OnResearch); break;
-				}
+                case "On_ServerSaved": Hooks.OnServerSaved += new Hooks.ServerSavedDelegate(plugin.OnServerSaved); break;
+                case "On_VoiceChat": Hooks.OnShowTalker += new Hooks.ShowTalkerDelegate(plugin.OnShowTalker); break;
+                case "On_ItemPickup": Hooks.OnItemPickup += new Hooks.ItemPickupDelegate(plugin.OnItemPickup); break;
+                case "On_FallDamage": Hooks.OnFallDamage += new Hooks.FallDamageDelegate(plugin.OnFallDamage); break;
+                case "On_LootUse": Hooks.OnLootUse += new Hooks.LootEnterDelegate(plugin.OnLootUse); break;
+                case "On_PlayerBan": Hooks.OnPlayerBan += new Hooks.BanEventDelegate(plugin.OnBanEvent); break;
+                case "On_RepairBench": Hooks.OnRepairBench += new Hooks.RepairBenchEventDelegate(plugin.OnRepairBench); break;
+                case "On_ItemMove": Hooks.OnItemMove += new Hooks.ItemMoveEventDelegate(plugin.OnItemMove); break;
+				case "On_GenericSpawnLoad": Hooks.OnGenericSpawnerLoad += new Hooks.GenericSpawnerLoadDelegate(plugin.OnGenericSpawnLoad); break;
+				case "On_ServerLoaded": Hooks.OnServerLoaded += new Hooks.ServerLoadedDelegate(plugin.OnServerLoaded); break;
+                }
 			}
 		}
 
@@ -339,7 +351,7 @@ namespace IronPythonModule
 				case "On_EntityHurt": Hooks.OnEntityHurt -= new Hooks.EntityHurtDelegate(plugin.OnEntityHurt); break;
 				case "On_EntityDecay": Hooks.OnEntityDecay -= new Hooks.EntityDecayDelegate(plugin.OnEntityDecay); break;
 				case "On_EntityDestroyed": Hooks.OnEntityDestroyed -= new Hooks.EntityDestroyedDelegate(plugin.OnEntityDestroyed); break;
-				case "On_EntityDeployed": Hooks.OnEntityDeployed -= new Hooks.EntityDeployedDelegate(plugin.OnEntityDeployed); break;
+				case "On_EntityDeployed": Hooks.OnEntityDeployedWithPlacer -= new Hooks.EntityDeployedWithPlacerDelegate(plugin.OnEntityDeployed); break;
 				case "On_NPCHurt": Hooks.OnNPCHurt -= new Hooks.HurtHandlerDelegate(plugin.OnNPCHurt); break;
 				case "On_NPCKilled": Hooks.OnNPCKilled -= new Hooks.KillHandlerDelegate(plugin.OnNPCKilled); break;
 				case "On_BlueprintUse": Hooks.OnBlueprintUse -= new Hooks.BlueprintUseHandlerDelegate(plugin.OnBlueprintUse); break;
@@ -351,10 +363,21 @@ namespace IronPythonModule
                 case "On_ItemAdded": Hooks.OnItemAdded -= new Hooks.ItemAddedDelegate(plugin.OnItemAdded); break;
                 case "On_ItemRemoved": Hooks.OnItemRemoved -= new Hooks.ItemRemovedDelegate(plugin.OnItemRemoved); break;
                 case "On_Airdrop": Hooks.OnAirdropCalled -= new Hooks.AirdropDelegate(plugin.OnAirdrop); break;
+                //case "On_AirdropCrateDropped": Hooks.OnAirdropCrateDropped -= new Hooks.AirdropCrateDroppedDelegate(plugin.OnAirdropCrateDropped); break;
                 case "On_SteamDeny": Hooks.OnSteamDeny -= new Hooks.SteamDenyDelegate(plugin.OnSteamDeny); break;
                 case "On_PlayerApproval": Hooks.OnPlayerApproval -= new Hooks.PlayerApprovalDelegate(plugin.OnPlayerApproval); break;
                 case "On_Research": Hooks.OnResearch -= new Hooks.ResearchDelegate(plugin.OnResearch); break;
-				}
+                case "On_ServerSaved": Hooks.OnServerSaved -= new Hooks.ServerSavedDelegate(plugin.OnServerSaved); break;
+                case "On_VoiceChat": Hooks.OnShowTalker -= new Hooks.ShowTalkerDelegate(plugin.OnShowTalker); break;
+                case "On_ItemPickup": Hooks.OnItemPickup -= new Hooks.ItemPickupDelegate(plugin.OnItemPickup); break;
+                case "On_FallDamage": Hooks.OnFallDamage -= new Hooks.FallDamageDelegate(plugin.OnFallDamage); break;
+                case "On_LootUse": Hooks.OnLootUse -= new Hooks.LootEnterDelegate(plugin.OnLootUse); break;
+                case "On_PlayerBan": Hooks.OnPlayerBan -= new Hooks.BanEventDelegate(plugin.OnBanEvent); break;
+                case "On_RepairBench": Hooks.OnRepairBench -= new Hooks.RepairBenchEventDelegate(plugin.OnRepairBench); break;
+                case "On_ItemMove": Hooks.OnItemMove -= new Hooks.ItemMoveEventDelegate(plugin.OnItemMove); break;
+				case "On_GenericSpawnLoad": Hooks.OnGenericSpawnerLoad -= new Hooks.GenericSpawnerLoadDelegate(plugin.OnGenericSpawnLoad); break;
+				case "On_ServerLoaded": Hooks.OnServerLoaded -= new Hooks.ServerLoadedDelegate(plugin.OnServerLoaded); break;
+                }
 			}
 		}
 
