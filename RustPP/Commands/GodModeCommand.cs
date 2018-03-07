@@ -4,21 +4,34 @@
     using System;
     using System.Collections.Generic;
 
-    internal class GodModeCommand : ChatCommand
+    public class GodModeCommand : ChatCommand
     {
-        private List<ulong> userIDs = new List<ulong>();
+        public List<ulong> userIDs = new List<ulong>();
 
         public override void Execute(ref ConsoleSystem.Arg Arguments, ref string[] ChatArguments)
         {
-            if (!this.userIDs.Contains(Arguments.argUser.userID))
+            var pl = Fougerite.Server.Cache[Arguments.argUser.userID];
+            if (pl.CommandCancelList.Contains("god"))
             {
-                this.userIDs.Add(Arguments.argUser.userID);
-                Util.sayUser(Arguments.argUser.networkPlayer, Core.Name, "God mode has been activated!");
+                if (userIDs.Contains(pl.UID))
+                {
+                    userIDs.Remove(pl.UID);
+                    pl.PlayerClient.controllable.character.takeDamage.SetGodMode(false);
+                }
+                return;
+            }
+            if (!this.userIDs.Contains(pl.UID))
+            {
+                this.userIDs.Add(pl.UID);
+                pl.PlayerClient.controllable.character.takeDamage.SetGodMode(true);
+                if (pl.FallDamage != null) { pl.FallDamage.ClearInjury();}
+                pl.MessageFrom(Core.Name, "God mode has been activated!");
             }
             else
             {
-                this.userIDs.Remove(Arguments.argUser.userID);
-                Util.sayUser(Arguments.argUser.networkPlayer, Core.Name, "God mode has been deactivated!");
+                this.userIDs.Remove(pl.UID);
+                pl.PlayerClient.controllable.character.takeDamage.SetGodMode(false);
+                pl.MessageFrom(Core.Name, "God mode has been deactivated!");
             }
         }
 

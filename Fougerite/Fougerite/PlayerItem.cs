@@ -1,4 +1,7 @@
-﻿namespace Fougerite
+﻿using System.Linq;
+using RustProto;
+
+namespace Fougerite
 {
 
     public class PlayerItem
@@ -91,7 +94,7 @@
         {
             get
             {
-                return this.UsesLeft;
+                return Util.UStackable.Contains(Name) ? 1 : this.UsesLeft;
             }
             set
             {
@@ -126,5 +129,26 @@
                 this.RInventoryItem.SetUses(value);
             }
         }
+
+        /*public class Mods
+        {
+            public BulletWeaponDataBlock Weapon;
+            public bool _IsWeapon;
+            public Mods(IInventoryItem iitem)
+            {
+                Weapon = iitem.datablock as BulletWeaponDataBlock;
+                if (Weapon == null)
+                {
+                    _IsWeapon = false;
+                    return;
+                }
+                //Weapon.ConstructItem().;
+            }
+
+            public bool IsWeapon
+            {
+                get { return _IsWeapon; }
+            }
+        }*/
     }
 }

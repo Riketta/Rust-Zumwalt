@@ -9,32 +9,34 @@
     {
         public override void Execute(ref ConsoleSystem.Arg Arguments, ref string[] ChatArguments)
         {
+            var pl = Fougerite.Server.Cache[Arguments.argUser.userID];
             string playerName = string.Join(" ", ChatArguments).Trim(new char[] { ' ', '"' });
             if (playerName == string.Empty)
             {
-                Util.sayUser(Arguments.argUser.networkPlayer, Core.Name, "Friends Management Usage:  /unfriend playerName");
+                pl.MessageFrom(Core.Name, "Friends Management Usage:  /unfriend playerName");
                 return;
             }
             FriendsCommand command = (FriendsCommand)ChatCommand.GetCommand("friends");
-            FriendList friendsList = (FriendList)command.GetFriendsLists()[Arguments.argUser.userID];
+            FriendList friendsList = (FriendList)command.GetFriendsLists()[pl.UID];
             if (friendsList == null)
             {
-                Util.sayUser(Arguments.argUser.networkPlayer, Core.Name, "You currently have no friends.");
+                pl.MessageFrom(Core.Name, "You currently have no friends.");
                 return;
             }
             if (friendsList.isFriendWith(playerName))
             {
                 friendsList.RemoveFriend(playerName);
-                Util.sayUser(Arguments.argUser.networkPlayer, Core.Name, "You have removed " + playerName + " from your friends list.");
+                pl.MessageFrom(Core.Name, "You have removed " + playerName + " from your friends list.");
                 if (friendsList.HasFriends())
                 {
-                    command.GetFriendsLists()[Arguments.argUser.userID] = friendsList;
-                } else
-                {
-                    command.GetFriendsLists().Remove(Arguments.argUser.userID);
+                    command.GetFriendsLists()[pl.UID] = friendsList;
                 }
-                return;
-            } else
+                else
+                {
+                    command.GetFriendsLists().Remove(pl.UID);
+                }
+            }
+            else
             {
                 PList list = new PList();
                 list.Add(0, "Cancel");
@@ -45,48 +47,49 @@
                 }
                 if (list.Count == 1)
                 {
-                    foreach (PlayerClient client in PlayerClient.All)
+                    foreach (Fougerite.Player client in Fougerite.Server.GetServer().Players)
                     {
-                        if (friendsList.isFriendWith(client.netUser.userID) && client.netUser.displayName.ToUpperInvariant().Contains(playerName.ToUpperInvariant()))
-                            list.Add(client.netUser.userID, client.netUser.displayName);
+                        if (friendsList.isFriendWith(client.UID) && client.Name.ToUpperInvariant().Contains(playerName.ToUpperInvariant()))
+                            list.Add(client.UID, client.Name);
                     }
                 }
                 if (list.Count == 1)
                 {
-                    Util.sayUser(Arguments.argUser.networkPlayer, Core.Name, string.Format("You are not friends with {0}.", playerName));
+                    pl.MessageFrom(Core.Name, string.Format("You are not friends with {0}.", playerName));
                     return;
                 }
 
-                Util.sayUser(Arguments.argUser.networkPlayer, Core.Name, string.Format("{0}  friend{1} {2}: ", ((list.Count - 1)).ToString(), (((list.Count - 1) > 1) ? "s match" : " matches"), playerName));
+                pl.MessageFrom(Core.Name, string.Format("{0}  friend{1} {2}: ", ((list.Count - 1)).ToString(), (((list.Count - 1) > 1) ? "s match" : " matches"), playerName));
                 for (int i = 1; i < list.Count; i++)
                 {
-                    Util.sayUser(Arguments.argUser.networkPlayer, Core.Name, string.Format("{0} - {1}", i, list.PlayerList[i].DisplayName));
+                    pl.MessageFrom(Core.Name, string.Format("{0} - {1}", i, list.PlayerList[i].DisplayName));
                 }
-                Util.sayUser(Arguments.argUser.networkPlayer, Core.Name, "0 - Cancel");
-                Util.sayUser(Arguments.argUser.networkPlayer, Core.Name, "Please enter the number matching the friend to remove.");
-                Core.unfriendWaitList[Arguments.argUser.userID] = list;
+                pl.MessageFrom(Core.Name, "0 - Cancel");
+                pl.MessageFrom(Core.Name, "Please enter the number matching the friend to remove.");
+                Core.unfriendWaitList[pl.UID] = list;
             }
         }
 
         public void PartialNameUnfriend(ref ConsoleSystem.Arg Arguments, int id)
         {
+            var pl = Fougerite.Server.Cache[Arguments.argUser.userID];
             if (id == 0)
             {
-                Util.sayUser(Arguments.argUser.networkPlayer, Core.Name, "Cancelled!");
+                pl.MessageFrom(Core.Name, "Cancelled!");
                 return;
             }
-            PList list = (PList)Core.unfriendWaitList[Arguments.argUser.userID];
-            Unfriend(list.PlayerList[id], Arguments.argUser);
+            PList list = (PList)Core.unfriendWaitList[pl.UID];
+            Unfriend(list.PlayerList[id], pl);
         }
 
-        public void Unfriend(PList.Player exfriend, NetUser unfriending)
+        public void Unfriend(PList.Player exfriend, Fougerite.Player unfriending)
         {
             FriendsCommand command = (FriendsCommand)ChatCommand.GetCommand("friends");
-            FriendList friendsList = (FriendList)command.GetFriendsLists()[unfriending.userID];
+            FriendList friendsList = (FriendList)command.GetFriendsLists()[unfriending.UID];
 
             friendsList.RemoveFriend(exfriend.UserID);
-            command.GetFriendsLists()[unfriending.userID] = friendsList;
-            Util.sayUser(unfriending.networkPlayer, Core.Name, string.Format("You have removed {0} from your friends list.", exfriend.DisplayName));
+            command.GetFriendsLists()[unfriending.UID] = friendsList;
+            unfriending.MessageFrom(Core.Name, string.Format("You have removed {0} from your friends list.", exfriend.DisplayName));
         }
     }
 }

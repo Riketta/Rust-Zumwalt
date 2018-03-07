@@ -4,10 +4,11 @@
 
     public class SpawnEvent
     {
-        private bool _atCamp;
+        private readonly bool _atCamp;
         private float _x;
         private float _y;
         private float _z;
+        private Vector3 _orig;
 
         public SpawnEvent(Vector3 pos, bool camp)
         {
@@ -15,6 +16,7 @@
             this._x = pos.x;
             this._y = pos.y;
             this._z = pos.z;
+            this._orig = pos;
         }
 
         public bool CampUsed
@@ -22,6 +24,20 @@
             get
             {
                 return this._atCamp;
+            }
+        }
+
+        public Vector3 Location
+        {
+            get
+            {
+                return this._orig;
+            }
+            set
+            {
+                this._x = value.x;
+                this._y = value.y;
+                this._z = value.z;
             }
         }
 

@@ -1,6 +1,5 @@
-﻿using UnityEngine;
-
-namespace MagmaPlugin
+﻿
+namespace MagmaModule
 {
     using System;
     using System.Collections.Generic;
@@ -10,24 +9,29 @@ namespace MagmaPlugin
     using Fougerite.Events;
     using Jint;
     using Jint.Expressions;
+    using UnityEngine;
 
-    public class Plugin
+    public class MagmaPlugin
     {
         public readonly JintEngine Engine;
-        public string Name;
-        public string Code;
-        public DirectoryInfo RootDirectory;
-        public AdvancedTimer AdvancedTimers;
-        //public readonly Dictionary<String, TimedEvent> Timers;
+        public readonly string Name;
+        public readonly string Code;
+        public readonly string Author;
+        public readonly string Version;
+        public readonly string About;
+        public readonly DirectoryInfo RootDirectory;
+        public readonly AdvancedTimer AdvancedTimers;
         public readonly Dictionary<String, TimedEvent> Timers;
-        private readonly string brktname = "[Magma]";
-        public List<string> CommandList;
+        public List<string> FunctionNames;
+        private const string brktname = "[Magma]";
+        public readonly List<string> CommandList;
 
-        public Plugin(DirectoryInfo directory, string name, string code)
+        public MagmaPlugin(DirectoryInfo directory, string name, string code)
         {
             Name = name;
             Code = code;
             RootDirectory = directory;
+            FunctionNames = new List<string>();
             CommandList = new List<string>();
             Timers = new Dictionary<String, TimedEvent>();
             AdvancedTimers = new AdvancedTimer(this);
@@ -36,37 +40,46 @@ namespace MagmaPlugin
 
             InitGlobals();
             Engine.Run(code);
-            try
-            {
-                Engine.CallFunction("On_PluginInit");
-            }
-            catch { }
+            object author = GetGlobalObject("Author");
+            object about = GetGlobalObject("About");
+            object version = GetGlobalObject("Version");
+            Author = author == null || author == "undefined" ? "Unknown" : author.ToString();
+            About = about == null || about == "undefined" ? "" : about.ToString();
+            Version = version == null || version == "undefined" ? "1.0" : version.ToString();
         }
 
         public void InitGlobals()
         {
             Engine.SetParameter("Server", Fougerite.Server.GetServer());
-            Engine.SetParameter("Data", MagmaPlugin.Data.GetData());
+            Engine.SetParameter("Data", MagmaModule.Data.GetData());
             Engine.SetParameter("DataStore", Fougerite.DataStore.GetInstance());
             Engine.SetParameter("Util", Fougerite.Util.GetUtil());
             Engine.SetParameter("Web", new Fougerite.Web());
             Engine.SetParameter("Time", this);
             Engine.SetParameter("World", Fougerite.World.GetWorld());
             Engine.SetParameter("Plugin", this);
-            //Engine.SetParameter("SQLite", new Fougerite.SQLite());
+            Engine.SetParameter("PluginCollector", GlobalPluginCollector.GetPluginCollector());
+            Engine.SetParameter("Loom", Loom.Current);
+            Engine.SetParameter("JSON", JsonAPI.GetInstance);
+            Engine.SetParameter("MySQL", MySQLConnector.GetInstance);
+            Engine.SetParameter("SQLite", SQLiteConnector.GetInstance);
         }
 
-        private void Invoke(string func, params object[] obj)
+        public object Invoke(string func, params object[] obj)
         {
             try
             {
-                Engine.CallFunction(func, obj);
+                if (FunctionNames.Contains(func))
+                {
+                    return Engine.CallFunction(func, obj);
+                }
             }
             catch (Exception ex)
             {
                 Logger.LogError(string.Format("{0} Error invoking function {1} in {2} plugin.", brktname, func, Name));
                 Logger.LogException(ex);
             }
+            return null;
         }
 
         public IEnumerable<FunctionDeclarationStatement> GetSourceCodeGlobalFunctions()
@@ -89,6 +102,10 @@ namespace MagmaPlugin
             foreach (var funcDecl in GetSourceCodeGlobalFunctions())
             {
                 Logger.LogDebug(string.Format("{0} Found Function: {1}", brktname, funcDecl.Name));
+                if (!FunctionNames.Contains(funcDecl.Name))
+                {
+                    FunctionNames.Add(funcDecl.Name.Trim());
+                }
                 switch (funcDecl.Name)
                 {
                     case "On_ServerInit": Hooks.OnServerInit += OnServerInit; break;
@@ -108,7 +125,17 @@ namespace MagmaPlugin
                     case "On_PlayerGathering": Hooks.OnPlayerGathering += OnPlayerGathering; break;
                     case "On_EntityHurt": Hooks.OnEntityHurt += OnEntityHurt; break;
                     case "On_EntityDecay": Hooks.OnEntityDecay += OnEntityDecay; break;
-                    case "On_EntityDeployed": Hooks.OnEntityDeployed += OnEntityDeployed; break;
+                    case "On_EntityDeployed":
+                        switch (funcDecl.Parameters.Count())
+                        {
+                            case 2:
+                                Hooks.OnEntityDeployed += OnEntityDeployed;
+                                break;
+                            case 3:
+                                Hooks.OnEntityDeployedWithPlacer += OnEntityDeployed2;
+                                break;
+                        }
+                        break;
                     case "On_NPCHurt": Hooks.OnNPCHurt += OnNPCHurt; break;
                     case "On_NPCKilled": Hooks.OnNPCKilled += OnNPCKilled; break;
                     case "On_BlueprintUse": Hooks.OnBlueprintUse += OnBlueprintUse; break;
@@ -119,9 +146,21 @@ namespace MagmaPlugin
                     case "On_ItemAdded": Hooks.OnItemAdded += OnItemAdded; break;
                     case "On_ItemRemoved": Hooks.OnItemRemoved += OnItemRemoved; break;
                     case "On_Airdrop": Hooks.OnAirdropCalled += OnAirdrop; break;
+                    //case "On_AirdropCrateDropped": Hooks.OnAirdropCrateDropped += OnAirdropCrateDropped; break;
                     case "On_SteamDeny": Hooks.OnSteamDeny += OnSteamDeny; break;
                     case "On_PlayerApproval": Hooks.OnPlayerApproval += OnPlayerApproval; break;
                     case "On_Research": Hooks.OnResearch += OnResearch; break;
+                    case "On_ServerSaved": Hooks.OnServerSaved += OnServerSaved; break;
+                    case "On_AllPluginsLoaded": MagmaPluginModule.OnAllLoaded += OnAllLoaded; break;
+                    case "On_VoiceChat": Hooks.OnShowTalker += OnShowTalker; break;
+                    case "On_ItemPickup": Hooks.OnItemPickup += OnItemPickup; break;
+                    case "On_FallDamage": Hooks.OnFallDamage += OnFallDamage; break;
+                    case "On_LootUse": Hooks.OnLootUse += OnLootUse; break;
+                    case "On_PlayerBan": Hooks.OnPlayerBan += OnBanEvent; break;
+                    case "On_RepairBench": Hooks.OnRepairBench += OnRepairBench; break;
+                    case "On_ItemMove": Hooks.OnItemMove += OnItemMove; break;
+                    case "On_GenericSpawnLoad": Hooks.OnGenericSpawnerLoad += OnGenericSpawnLoad; break;
+                    case "On_ServerLoaded": Hooks.OnServerLoaded += OnServerLoaded; break;
                 }
             }
         }
@@ -150,7 +189,17 @@ namespace MagmaPlugin
                     case "On_PlayerGathering": Hooks.OnPlayerGathering -= OnPlayerGathering; break;
                     case "On_EntityHurt": Hooks.OnEntityHurt -= OnEntityHurt; break;
                     case "On_EntityDecay": Hooks.OnEntityDecay -= OnEntityDecay; break;
-                    case "On_EntityDeployed": Hooks.OnEntityDeployed -= OnEntityDeployed; break;
+                    case "On_EntityDeployed":
+                        switch (funcDecl.Parameters.Count())
+                        {
+                            case 2:
+                                Hooks.OnEntityDeployed -= OnEntityDeployed;
+                                break;
+                            case 3:
+                                Hooks.OnEntityDeployedWithPlacer -= OnEntityDeployed2;
+                                break;
+                        }
+                        break;
                     case "On_NPCHurt": Hooks.OnNPCHurt -= OnNPCHurt; break;
                     case "On_NPCKilled": Hooks.OnNPCKilled -= OnNPCKilled; break;
                     case "On_BlueprintUse": Hooks.OnBlueprintUse -= OnBlueprintUse; break;
@@ -161,9 +210,21 @@ namespace MagmaPlugin
                     case "On_ItemAdded": Hooks.OnItemAdded -= OnItemAdded; break;
                     case "On_ItemRemoved": Hooks.OnItemRemoved -= OnItemRemoved; break;
                     case "On_Airdrop": Hooks.OnAirdropCalled -= OnAirdrop; break;
+                    //case "On_AirdropCrateDropped": Hooks.OnAirdropCrateDropped -= OnAirdropCrateDropped; break;
                     case "On_SteamDeny": Hooks.OnSteamDeny -= OnSteamDeny; break;
                     case "On_PlayerApproval": Hooks.OnPlayerApproval -= OnPlayerApproval; break;
                     case "On_Research": Hooks.OnResearch -= OnResearch; break;
+                    case "On_ServerSaved": Hooks.OnServerSaved -= OnServerSaved; break;
+                    case "On_AllPluginsLoaded": MagmaPluginModule.OnAllLoaded -= OnAllLoaded; break;
+                    case "On_VoiceChat": Hooks.OnShowTalker -= OnShowTalker; break;
+                    case "On_ItemPickup": Hooks.OnItemPickup -= OnItemPickup; break;
+                    case "On_FallDamage": Hooks.OnFallDamage -= OnFallDamage; break;
+                    case "On_LootUse": Hooks.OnLootUse -= OnLootUse; break;
+                    case "On_PlayerBan": Hooks.OnPlayerBan -= OnBanEvent; break;
+                    case "On_RepairBench": Hooks.OnRepairBench -= OnRepairBench; break;
+                    case "On_ItemMove": Hooks.OnItemMove -= OnItemMove; break;
+                    case "On_GenericSpawnLoad": Hooks.OnGenericSpawnerLoad -= OnGenericSpawnLoad; break;
+                    case "On_ServerLoaded": Hooks.OnServerLoaded -= OnServerLoaded; break;
                 }
             }
         }
@@ -221,6 +282,18 @@ namespace MagmaPlugin
             return null;
         }
 
+        public MagmaPlugin GetPlugin(string name)
+        {
+            MagmaPlugin plugin;
+            MagmaPluginModule.Plugins.TryGetValue(name, out plugin);
+            if (plugin == null)
+            {
+                Logger.LogDebug("[MagmaPlugin] [GetPlugin] '" + name + "' plugin not found!");
+                return null;
+            }
+            return plugin;
+        }
+
         public bool IniExists(string path)
         {
             path = ValidateRelativePath(path + ".ini");
@@ -240,7 +313,10 @@ namespace MagmaPlugin
                 File.WriteAllText(path, "");
                 return new IniParser(path);
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Logger.LogError("[MagmaPlugin] " + Name + " Failed to Create IniFile! Path: " + path + " Exception: " + ex);
+            }
 
             return null;
         }
@@ -253,6 +329,11 @@ namespace MagmaPlugin
                 return new List<IniParser>();
 
             return Directory.GetFiles(path).Select(p => new IniParser(p)).ToList();
+        }
+
+        public object GetGlobalObject(string identifier)
+        {
+            return Engine.Run(string.Format("return {0};", identifier));
         }
 
         public void DeleteLog(string path)
@@ -275,9 +356,9 @@ namespace MagmaPlugin
 
             File.AppendAllText(path, "[" + DateTime.Now.ToShortDateString() + " " + DateTime.Now.ToString("HH:mm:ss") + "] " + text + "\r\n");
             FileInfo fi = new FileInfo(path);
-            float mega = (fi.Length / 1024f) / 1024f;
             if (fi.Exists)
             {
+                float mega = (fi.Length / 1024f) / 1024f;
                 if (mega > 1.0)
                 {
                     try
@@ -349,6 +430,11 @@ namespace MagmaPlugin
             return new Dictionary<string, object>();
         }
 
+        public List<string> CreateList()
+        {
+            return new List<string>();
+        }
+
         #region Other functions.
 
         public string GetDate()
@@ -376,7 +462,7 @@ namespace MagmaPlugin
 
         #region Hooks
 
-        public void OnTimerCB2(MagmaTE evt)
+        public void OnTimerCB(MagmaTE evt)
         {
             try
             {
@@ -386,6 +472,11 @@ namespace MagmaPlugin
             {
                 Fougerite.Logger.LogError("Failed to invoke callback " + evt.Name + " Ex: " + ex);
             }
+        }
+
+        public void OnAllLoaded()
+        {
+            Invoke("On_AllPluginsLoaded");
         }
 
         public void OnBlueprintUse(Player player, BPUseEvent evt)
@@ -407,15 +498,6 @@ namespace MagmaPlugin
         {
             if (args == null)
                 throw new ArgumentNullException("args");
-            if (Fougerite.Server.CommandCancelList.ContainsKey(player))
-            {
-                var list = Fougerite.Server.CommandCancelList[player];
-                if (list.Contains(command))
-                {
-                    player.Message("You cannot execute " + command + " at the moment!");
-                    return;
-                }
-            }
             if (CommandList.Count != 0 && !CommandList.Contains(command) && !Fougerite.Server.ForceCallForCommands.Contains(command)) { return; }
             Invoke("On_Command", player, command, args);
         }
@@ -443,6 +525,11 @@ namespace MagmaPlugin
         public void OnEntityDeployed(Player player, Entity entity)
         {
             Invoke("On_EntityDeployed", player, entity);
+        }
+
+        public void OnEntityDeployed2(Player player, Entity entity, Fougerite.Player actualplacer)
+        {
+            Invoke("On_EntityDeployed", player, entity, actualplacer);
         }
 
         public void OnEntityHurt(HurtEvent evt)
@@ -525,10 +612,25 @@ namespace MagmaPlugin
             Invoke("On_ItemRemoved", e);
         }
 
+        public void OnItemPickup(ItemPickupEvent e)
+        {
+            Invoke("On_ItemPickup", e);
+        }
+
+        public void OnFallDamage(FallDamageEvent e)
+        {
+            Invoke("On_FallDamage", e);
+        }
+
         public void OnAirdrop(Vector3 v)
         {
             Invoke("On_Airdrop", v);
         }
+
+        /*public void OnAirdropCrateDropped(GameObject go)
+        {
+            Invoke("On_AirdropCrateDropped", new Entity());
+        }*/
 
         public void OnSteamDeny(SteamDenyEvent e)
         {
@@ -555,15 +657,60 @@ namespace MagmaPlugin
             Invoke("On_ServerShutdown");
         }
 
+        public void OnServerSaved()
+        {
+            Invoke("On_ServerSaved");
+        }
+
         public void OnTablesLoaded(Dictionary<string, LootSpawnList> lists)
         {
             Invoke("On_TablesLoaded", lists);
+        }
+
+        public void OnShowTalker(uLink.NetworkPlayer np, Fougerite.Player player)
+        {
+            Invoke("On_VoiceChat", np, player);
+        }
+
+        public void OnPluginShutdown()
+        {
+            Invoke("On_PluginShutdown");
+        }
+
+        public void OnLootUse(LootStartEvent le)
+        {
+            Invoke("On_LootUse", le);
+        }
+
+        public void OnRepairBench(Fougerite.Events.RepairEvent be)
+        {
+            Invoke("On_RepairBench", be);
+        }
+
+        public void OnItemMove(ItemMoveEvent be)
+        {
+            Invoke("On_ItemMove", be);
         }
 
         public void OnTimerCB(string name)
         {
             if (Code.Contains(name + "Callback"))
                 Invoke(name + "Callback");
+        }
+
+        public void OnBanEvent(BanEvent be)
+        {
+            Invoke("On_PlayerBan", be);
+        }
+        
+        public void OnGenericSpawnLoad(GenericSpawner gs)
+        {
+            Invoke("On_GenericSpawnLoad", gs);
+        }
+        
+        public void OnServerLoaded()
+        {
+            Invoke("On_ServerLoaded");
         }
 
         public void OnTimerCBArgs(string name, object[] args)

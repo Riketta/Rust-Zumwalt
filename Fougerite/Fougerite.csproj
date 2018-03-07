@@ -18,7 +18,8 @@
     <OutputPath>..\bin</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
+    <WarningLevel>3</WarningLevel>
+    <LangVersion>6</LangVersion>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -28,33 +29,91 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'SERVER|AnyCPU'">
+    <OutputPath>..\bin\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <Optimize>true</Optimize>
+    <DebugType>pdbonly</DebugType>
+    <PlatformTarget>x86</PlatformTarget>
+    <ErrorReport>prompt</ErrorReport>
+    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
+  </PropertyGroup>
+  <PropertyGroup>
+    <ApplicationIcon>g3115-6.ico</ApplicationIcon>
+  </PropertyGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
   <ItemGroup>
-    <None Include="SQLite.cssss" />
+    <Compile Include="Fougerite\Events\BanEvent.cs" />
+    <Compile Include="Fougerite\Events\BowShootEvent.cs" />
+    <Compile Include="Fougerite\Events\GrenadeThrowEvent.cs" />
+    <Compile Include="Fougerite\Events\ItemMoveEvent.cs" />
+    <Compile Include="Fougerite\Events\LootStartEvent.cs" />
+    <Compile Include="Fougerite\Events\RepairEvent.cs" />
+    <Compile Include="Fougerite\Events\ShootEvent.cs" />
+    <Compile Include="Fougerite\Events\ShotgunShootEvent.cs" />
+    <Compile Include="Fougerite\JsonAPI.cs" />
+    <Compile Include="Fougerite\Loom.cs" />
+    <Compile Include="Fougerite\MySQLConnector.cs" />
+    <Compile Include="Fougerite\ShutdownCatcher.cs" />
     <Reference Include="Assembly-CSharp, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
       <HintPath>..\References\Assembly-CSharp.dll</HintPath>
     </Reference>
-    <Reference Include="MoonSharp.Interpreter">
-      <HintPath>..\References\MoonSharp.Interpreter.dll</HintPath>
+    <Reference Include="Facepunch.HitBox, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\References\PatchedReferences\FougeriteReferences\Facepunch.HitBox.dll</HintPath>
     </Reference>
-    <Reference Include="RustPP">
-      <HintPath>..\bin\modules\RustPP\RustPP.dll</HintPath>
+    <Reference Include="Facepunch.ID, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\References\PatchedReferences\FougeriteReferences\Facepunch.ID.dll</HintPath>
+    </Reference>
+    <Reference Include="Facepunch.MeshBatch, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\References\PatchedReferences\Facepunch.MeshBatch.dll</HintPath>
+    </Reference>
+    <Reference Include="Google.ProtocolBuffers, Version=2.4.1.521, Culture=neutral, PublicKeyToken=55f7125234beb589, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\References\PatchedReferences\FougeriteReferences\Google.ProtocolBuffers.dll</HintPath>
+    </Reference>
+    <Reference Include="Google.ProtocolBuffers.Serialization, Version=2.4.1.521, Culture=neutral, PublicKeyToken=55f7125234beb589, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\References\PatchedReferences\FougeriteReferences\Google.ProtocolBuffers.Serialization.dll</HintPath>
+    </Reference>
+    <Reference Include="MySql.Data, Version=6.0.7.0, Culture=neutral, PublicKeyToken=c5687fc88969c44d, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\References\MysqlRef\MySql.Data.dll</HintPath>
+    </Reference>
+    <Reference Include="Newtonsoft.Json, Version=4.5.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\References\Newtonsoft.Json.dll</HintPath>
+    </Reference>
+    <Reference Include="Newtonsoft.Json.Schema">
+      <HintPath>..\References\Newtonsoft.Json.Schema.dll</HintPath>
+    </Reference>
+    <Reference Include="RustPP, Version=1.1.7.9, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\References\PatchedReferences\FougeriteReferences\RustPP.dll</HintPath>
     </Reference>
     <Reference Include="System" />
-    <Reference Include="UnityEngine">
-      <HintPath>..\References\UnityEngine.dll</HintPath>
+    <Reference Include="System.Data" />
+    <Reference Include="System.Data.SQLite, Version=1.0.105.2, Culture=neutral, PublicKeyToken=db937bc2d44ff139, processorArchitecture=AMD64">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\References\SqliteRef\System.Data.SQLite.dll</HintPath>
     </Reference>
+    <Reference Include="System.XML" />
     <Reference Include="System.Core">
       <HintPath>..\References\System.Core.dll</HintPath>
     </Reference>
     <Compile Include="AssemblyInfo.cs" />
+    <Compile Include="Fougerite\Events\FallDamageEvent.cs" />
+    <Compile Include="Fougerite\Events\ItemPickupEvent.cs" />
     <Compile Include="Fougerite\Events\PlayerApprovalEvent.cs" />
     <Compile Include="Fougerite\Events\ResearchEvent.cs" />
     <Compile Include="Fougerite\Events\SteamDenyEvent.cs" />
     <Compile Include="Fougerite\Events\CraftingEvent.cs" />
     <Compile Include="Fougerite\Events\InventoryModEvent.cs" />
     <Compile Include="Fougerite\FInventory.cs" />
+    <Compile Include="Fougerite\GlobalPluginCollector.cs" />
     <Compile Include="Fougerite\RustPPExtension.cs" />
     <Compile Include="Fougerite\Sleeper.cs" />
     <Compile Include="Fougerite\Config.cs" />
@@ -62,6 +121,7 @@
     <Compile Include="Fougerite\ModuleContainer.cs" />
     <Compile Include="Fougerite\ModuleManager.cs" />
     <Compile Include="Fougerite\FougeriteEx.cs" />
+    <Compile Include="Fougerite\SQLiteConnector.cs" />
     <Compile Include="Global.cs" />
     <Compile Include="Fougerite\ChatString.cs" />
     <Compile Include="Fougerite\Logger.cs" />
@@ -91,20 +151,15 @@
     <Compile Include="IniParser.cs" />
     <Compile Include="Fougerite\Util.cs" />
     <Compile Include="Fougerite\Bootstrap.cs" />
-    <Reference Include="Facepunch.ID">
-      <HintPath>..\References\Facepunch.ID.dll</HintPath>
-    </Reference>
-    <Reference Include="Google.ProtocolBuffers">
-      <HintPath>..\References\Google.ProtocolBuffers.dll</HintPath>
-    </Reference>
-    <Reference Include="uLink">
-      <HintPath>..\References\uLink.dll</HintPath>
-    </Reference>
-    <Reference Include="System.Xml" />
     <Compile Include="Fougerite\Events\DestroyEvent.cs" />
     <Compile Include="Fougerite\SerializableDictionary.cs" />
-    <Reference Include="UnityEngine.Cloud.Analytics">
-      <HintPath>..\..\IronPythonModule-master\IronPythonModule\ref\UnityEngine.Cloud.Analytics.dll</HintPath>
+    <Reference Include="uLink, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\References\uLink.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\References\PatchedReferences\FougeriteReferences\UnityEngine.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup>
@@ -116,5 +171,19 @@
     <None Include="FougeriteDirectory.cfg">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="g3115-6.ico" />
+  </ItemGroup>
+  <ItemGroup>
+    <COMReference Include="Shell32">
+      <Guid>{50A7E9B0-70EF-11D1-B75A-00A0C90564FE}</Guid>
+      <VersionMajor>1</VersionMajor>
+      <VersionMinor>0</VersionMinor>
+      <Lcid>0</Lcid>
+      <WrapperTool>tlbimp</WrapperTool>
+      <Isolated>False</Isolated>
+      <EmbedInteropTypes>True</EmbedInteropTypes>
+    </COMReference>
   </ItemGroup>
 </Project>
