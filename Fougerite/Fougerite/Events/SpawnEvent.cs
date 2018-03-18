@@ -2,12 +2,16 @@
 {
     using UnityEngine;
 
+    /// <summary>
+    /// This class is created when a player is spawning or just spawned.
+    /// </summary>
     public class SpawnEvent
     {
-        private bool _atCamp;
+        private readonly bool _atCamp;
         private float _x;
         private float _y;
         private float _z;
+        private Vector3 _orig;
 
         public SpawnEvent(Vector3 pos, bool camp)
         {
@@ -15,8 +19,12 @@
             this._x = pos.x;
             this._y = pos.y;
             this._z = pos.z;
+            this._orig = pos;
         }
 
+        /// <summary>
+        /// Did the player use the campused button?
+        /// </summary>
         public bool CampUsed
         {
             get
@@ -25,6 +33,26 @@
             }
         }
 
+        /// <summary>
+        /// Location where the player is spawning or spawned. Can change at Spawning.
+        /// </summary>
+        public Vector3 Location
+        {
+            get
+            {
+                return this._orig;
+            }
+            set
+            {
+                this._x = value.x;
+                this._y = value.y;
+                this._z = value.z;
+            }
+        }
+
+        /// <summary>
+        /// X of the spawn coordinates. Can change at Spawning.
+        /// </summary>
         public float X
         {
             get
@@ -37,6 +65,9 @@
             }
         }
 
+        /// <summary>
+        /// Y of the spawn coordinates. Can change at Spawning.
+        /// </summary>
         public float Y
         {
             get
@@ -48,7 +79,10 @@
                 this._y = value;
             }
         }
-
+        
+        /// <summary>
+        /// Z of the spawn coordinates. Can change at Spawning.
+        /// </summary>
         public float Z
         {
             get

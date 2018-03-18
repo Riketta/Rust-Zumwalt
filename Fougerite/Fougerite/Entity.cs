@@ -5,27 +5,35 @@ namespace Fougerite
     using System.Collections.Generic;
     using UnityEngine;
 
+    /// <summary>
+    /// Represents an object on the server. This class is an extended API for easier / safer use.
+    /// </summary>
     public class Entity
     {
         public readonly bool hasInventory;
         private readonly object _obj;
-        private EntityInv inv;
-        private ulong _ownerid;
-        private string _name;
+        private readonly EntityInv inv;
+        private readonly ulong _ownerid;
+        private readonly ulong _creatorid;
+        private readonly string _creatorname;
+        private readonly string _name;
+        private readonly string _ownername;
+        public bool IsDestroyed = false;
 
         public Entity(object Obj)
         {
             this._obj = Obj;
-
             if (Obj is StructureMaster)
             {
                 this._ownerid = (Obj as StructureMaster).ownerID;
+                this._creatorid = (Obj as StructureMaster).creatorID;
                 this._name = "Structure Master";
             }
 
             if (Obj is StructureComponent)
             {
                 this._ownerid = (Obj as StructureComponent)._master.ownerID;
+                this._creatorid = (Obj as StructureComponent)._master.creatorID;
                 string clone = this.GetObject<StructureComponent>().ToString();
                 var index = clone.IndexOf("(Clone)");
                 this._name = clone.Substring(0, index);
@@ -33,6 +41,7 @@ namespace Fougerite
             if (Obj is DeployableObject)
             {
                 this._ownerid = (Obj as DeployableObject).ownerID;
+                this._creatorid = (Obj as DeployableObject).creatorID;
                 string clone = this.GetObject<DeployableObject>().ToString();
                 if (clone.Contains("Barricade"))
                 {
@@ -56,9 +65,27 @@ namespace Fougerite
                     this.hasInventory = false;
                 }
             }
+            else if (Obj is LootableObject)
+            {
+                this._ownerid = 76561198095992578UL;
+                this._creatorid = 76561198095992578UL;
+                var loot = Obj as LootableObject;
+                this._name = loot.name;
+                var inventory = loot._inventory;
+                if (inventory != null)
+                {
+                    this.hasInventory = true;
+                    this.inv = new EntityInv(inventory, this);
+                }
+                else
+                {
+                    this.hasInventory = false;
+                }
+            }
             else if (Obj is SupplyCrate)
             {
                 this._ownerid = 76561198095992578UL;
+                this._creatorid = 76561198095992578UL;
                 this._name = "Supply Crate";
                 var crate = Obj as SupplyCrate;
                 var inventory = crate.lootableObject._inventory;
@@ -72,12 +99,54 @@ namespace Fougerite
                     this.hasInventory = false;
                 }
             }
+            else if (Obj is ResourceTarget)
+            {
+                var x = (ResourceTarget) Obj;
+                this._ownerid = 76561198095992578UL;
+                this._creatorid = 76561198095992578UL;
+                this._name = x.name;
+                this.hasInventory = false;
+            }
             else
             {
                 this.hasInventory = false;
             }
+            if (Fougerite.Server.Cache.ContainsKey(_ownerid))
+            {
+                this._ownername = Fougerite.Server.Cache[_ownerid].Name;
+            }
+            else if (Server.GetServer().HasRustPP)
+            {
+                if (Server.GetServer().GetRustPPAPI().Cache.ContainsKey(_ownerid))
+                {
+                    this._ownername = Server.GetServer().GetRustPPAPI().Cache[_ownerid];
+                }
+            }
+            else
+            {
+                this._ownername = "UnKnown";
+            }
+            if (Fougerite.Server.Cache.ContainsKey(_creatorid))
+            {
+                this._creatorname = Fougerite.Server.Cache[_creatorid].Name;
+            }
+            else if (Server.GetServer().HasRustPP)
+            {
+                if (Server.GetServer().GetRustPPAPI().Cache.ContainsKey(_creatorid))
+                {
+                    this._creatorname = Server.GetServer().GetRustPPAPI().Cache[_creatorid];
+                }
+            }
+            else
+            {
+                this._creatorname = "UnKnown";
+            }
         }
 
+        /// <summary>
+        /// Changes the Entity's owner to the specified player.
+        /// </summary>
+        /// <param name="p"></param>
         public void ChangeOwner(Fougerite.Player p)
         {
             if (this.IsDeployableObject() && !(bool)(this.Object as DeployableObject).GetComponent<SleepingAvatar>())
@@ -97,8 +166,15 @@ namespace Fougerite
             }
         }
 
+        /// <summary>
+        /// Destroys the entity.
+        /// </summary>
         public void Destroy()
         {
+            if (IsDestroyed)
+            {
+                return;
+            }
             if (this.IsDeployableObject())
             {
                 try
@@ -125,6 +201,7 @@ namespace Fougerite
                     TryNetCullDestroy();
                 }
             }
+            IsDestroyed = true;
         }
 
         private void TryNetCullDestroy()
@@ -132,10 +209,13 @@ namespace Fougerite
             try
             {
                 if (this.IsDeployableObject())
-                    NetCull.Destroy(this.GetObject<DeployableObject>().networkViewID);
-
-                if (this.IsStructureMaster())
-                    NetCull.Destroy(this.GetObject<StructureMaster>().networkViewID);
+                {
+                    if (this.GetObject<DeployableObject>() != null) NetCull.Destroy(this.GetObject<DeployableObject>().networkViewID);
+                }
+                else if (this.IsStructureMaster())
+                {
+                    if (this.GetObject<StructureMaster>() != null) NetCull.Destroy(this.GetObject<StructureMaster>().networkViewID);
+                }
             }
             catch { }
         }
@@ -153,10 +233,20 @@ namespace Fougerite
             }
         }
 
+        /// <summary>
+        /// Gets all connected structures to the entity.
+        /// </summary>
+        /// <returns>Returns a list containing all connected structures. If the entity isn't a structure, then It returns It self in a list.</returns>
         public List<Entity> GetLinkedStructs()
         {
             List<Entity> list = new List<Entity>();
-            foreach (StructureComponent component in (this.Object as StructureComponent)._master._structureComponents)
+            var obj = this.Object as StructureComponent;
+            if (obj == null)
+            {
+                list.Add(this);
+                return list;
+            }
+            foreach (StructureComponent component in obj._master._structureComponents)
             {
                 if (component != this.Object as StructureComponent)
                 {
@@ -166,7 +256,12 @@ namespace Fougerite
             return list;
         }
 
-        private T GetObject<T>()
+        /// <summary>
+        /// Casts the object to the specified type.
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <returns></returns>
+        public T GetObject<T>()
         {
             return (T)this.Object;
         }
@@ -184,11 +279,44 @@ namespace Fougerite
             return null;
         }
 
+        /// <summary>
+        /// Returns the Object as a ResourceTarget If possible.
+        /// </summary>
+        public ResourceTarget ResourceTarget
+        {
+            get
+            {
+                if (IsResourceTarget())
+                {
+                    var x = (ResourceTarget) _obj;
+                    return x;
+                }
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Checks if the object is a ResourceTarget
+        /// </summary>
+        /// <returns>Returns true if it is.</returns>
+        public bool IsResourceTarget()
+        {
+            return (this.Object is ResourceTarget);
+        }
+
+        /// <summary>
+        /// Checks if the object is a DeployableObject
+        /// </summary>
+        /// <returns>Returns true if it is.</returns>
         public bool IsDeployableObject()
         {
             return (this.Object is DeployableObject);
         }
 
+        /// <summary>
+        /// Checks if the object is a Chest or a Stash.
+        /// </summary>
+        /// <returns>Returns true if it is.</returns>
         public bool IsStorage()
         {
             if (this.IsDeployableObject())
@@ -197,16 +325,28 @@ namespace Fougerite
             return false;
         }
 
+        /// <summary>
+        /// Checks if the object is a StructureComponent
+        /// </summary>
+        /// <returns>Returns true if it is.</returns>
         public bool IsStructure()
         {
             return (this.Object is StructureComponent);
         }
 
+        /// <summary>
+        /// Checks if the object is a StructureMaster
+        /// </summary>
+        /// <returns>Returns true if it is.</returns>
         public bool IsStructureMaster()
         {
             return (this.Object is StructureMaster);
         }
 
+        /// <summary>
+        /// Checks if the object is a SleepingAvatar
+        /// </summary>
+        /// <returns>Returns true if it is.</returns>
         public bool IsSleeper()
         {
             if (this.IsDeployableObject())
@@ -215,6 +355,10 @@ namespace Fougerite
             return false;
         }
 
+        /// <summary>
+        /// Checks if the object is a FireBarrel
+        /// </summary>
+        /// <returns>Returns true if it is.</returns>
         public bool IsFireBarrel()
         {
             if (this.IsDeployableObject())
@@ -223,11 +367,19 @@ namespace Fougerite
             return false;
         }
 
+        /// <summary>
+        /// Checks if the object is a SupplyCrate
+        /// </summary>
+        /// <returns>Returns true if it is.</returns>
         public bool IsSupplyCrate()
         {
             return (this.Object is SupplyCrate);
         }
 
+        /// <summary>
+        /// Enable / Disable the Default Rust Decay on this object?
+        /// </summary>
+        /// <param name="c"></param>
         public void SetDecayEnabled(bool c)
         {
             if (this.IsDeployableObject())
@@ -236,6 +388,9 @@ namespace Fougerite
             }
         }
 
+        /// <summary>
+        /// Update the Entity's health.
+        /// </summary>
         public void UpdateHealth()
         {
             if (this.IsDeployableObject())
@@ -248,14 +403,36 @@ namespace Fougerite
             }
         }
 
+        /// <summary>
+        /// Tries to find the Creator of the object in the cache or through the online players. Returns null otherwise.
+        /// </summary>
         public Fougerite.Player Creator
         {
             get
             {
-                return Fougerite.Player.FindByGameID(this.CreatorID);
+                return Fougerite.Server.Cache.ContainsKey(_ownerid) ? Fougerite.Server.Cache[_ownerid] : Fougerite.Player.FindByGameID(this.CreatorID);
             }
         }
 
+        /// <summary>
+        /// Gets the ownername of the Entity
+        /// </summary>
+        public string OwnerName
+        {
+            get { return _ownername; }
+        }
+
+        /// <summary>
+        /// Gets the creatorname of the Entity
+        /// </summary>
+        public string CreatorName
+        {
+            get { return _creatorname; }
+        }
+
+        /// <summary>
+        /// Returns the OwnerID as a string
+        /// </summary>
         public string OwnerID
         {
             get
@@ -264,14 +441,42 @@ namespace Fougerite
             }
         }
 
+        /// <summary>
+        /// Returns the OwnerID as a ulong
+        /// </summary>
+        public ulong UOwnerID
+        {
+            get
+            {
+                return this._ownerid;
+            }
+        }
+
+        /// <summary>
+        /// Returns the CreatorID as a string
+        /// </summary>
         public string CreatorID
         {
             get
             {
-                return this._ownerid.ToString();
+                return this._creatorid.ToString();
+            }
+        }
+        
+        /// <summary>
+        /// Returns the OwnerID as a ulong
+        /// </summary>
+        public ulong UCreatorID
+        {
+            get
+            {
+                return this._creatorid;
             }
         }
 
+        /// <summary>
+        /// Returns the current health of the entity. Setting It will also update the health.
+        /// </summary>
         public float Health
         {
             get
@@ -305,6 +510,9 @@ namespace Fougerite
             }
         }
 
+        /// <summary>
+        /// Gets the maxhealth of the Entity.
+        /// </summary>
         public float MaxHealth
         {
             get
@@ -326,6 +534,9 @@ namespace Fougerite
             }
         }
 
+        /// <summary>
+        /// Gets the unique ID of the entity.
+        /// </summary>
         public int InstanceID
         {
             get
@@ -342,6 +553,9 @@ namespace Fougerite
             }
         }
 
+        /// <summary>
+        /// Gets the inventory of the Entity if possible.
+        /// </summary>
         public EntityInv Inventory
         {
             get
@@ -352,6 +566,9 @@ namespace Fougerite
             }
         }
 
+        /// <summary>
+        /// Gets the name of the Entity
+        /// </summary>
         public string Name
         {
             get
@@ -360,6 +577,9 @@ namespace Fougerite
             }
         }
 
+        /// <summary>
+        /// Returns the Original Object type of this Entity. (Like DeployaleObject, StructureComponent, SupplyCrate, etc.)
+        /// </summary>
         public object Object
         {
             get
@@ -368,6 +588,9 @@ namespace Fougerite
             }
         }
 
+        /// <summary>
+        /// Returns the Owner of the Entity IF ONLINE.
+        /// </summary>
         public Fougerite.Player Owner
         {
             get
@@ -376,6 +599,9 @@ namespace Fougerite
             }
         }
 
+        /// <summary>
+        /// Returns the location of the Entity.
+        /// </summary>
         public Vector3 Location
         {
             get
@@ -393,6 +619,26 @@ namespace Fougerite
             }
         }
 
+        /// <summary>
+        /// Returns the rotation of the Entity.
+        /// </summary>
+        public Quaternion Rotation
+        {
+            get
+            {
+                if (this.IsDeployableObject())
+                    return this.GetObject<DeployableObject>().transform.rotation;
+
+                if (this.IsStructure())
+                    return this.GetObject<StructureComponent>().transform.rotation;
+
+                return new Quaternion(0, 0, 0, 0);
+            }
+        }
+
+        /// <summary>
+        /// Returns the X coordinate of the Entity
+        /// </summary>
         public float X
         {
             get
@@ -401,6 +647,9 @@ namespace Fougerite
             }
         }
 
+        /// <summary>
+        /// Returns the Y coordinate of the Entity
+        /// </summary>
         public float Y
         {
             get
@@ -410,6 +659,9 @@ namespace Fougerite
 
         }
 
+        /// <summary>
+        /// Returns the Z coordinate of the Entity
+        /// </summary>
         public float Z
         {
             get

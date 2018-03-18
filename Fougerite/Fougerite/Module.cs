@@ -2,6 +2,9 @@
 namespace Fougerite
 {
     using System;
+    /// <summary>
+    /// Represents a Fougerite C# plugin.
+    /// </summary>
     public abstract class Module : IDisposable
     {
         public virtual string ModuleFolder
@@ -48,6 +51,9 @@ namespace Fougerite
             set;
         }
 
+        /// <summary>
+        /// Priority of the plugin's loading.
+        /// </summary>
         public virtual uint Order
         {
             get { return uint.MaxValue; }
@@ -76,9 +82,7 @@ namespace Fougerite
         {
         }
 
-        public virtual void DeInitialize()
-        {
-        }
+        public abstract void DeInitialize();
 
         public abstract void Initialize();
     }

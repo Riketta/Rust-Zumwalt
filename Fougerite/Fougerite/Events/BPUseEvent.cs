@@ -1,11 +1,13 @@
 ﻿namespace Fougerite.Events
 {
-
+    /// <summary>
+    /// This class is used on Blueprint Use Hook.
+    /// </summary>
     public class BPUseEvent
     {
         private BlueprintDataBlock _bdb;
         private bool _cancel;
-        private IBlueprintItem _item;
+        private readonly IBlueprintItem _item;
 
         public BPUseEvent(BlueprintDataBlock bdb, IBlueprintItem item)
         {
@@ -14,6 +16,9 @@
             this._item = item;
         }
 
+        /// <summary>
+        /// Gets if the event is cancelled or can be set to cancelled.
+        /// </summary>
         public bool Cancel
         {
             get
@@ -26,6 +31,9 @@
             }
         }
 
+        /// <summary>
+        /// Gets the blueprint's datablock.
+        /// </summary>
         public BlueprintDataBlock DataBlock
         {
             get
@@ -38,6 +46,9 @@
             }
         }
 
+        /// <summary>
+        /// Gets the actual blueprint item.
+        /// </summary>
         public IBlueprintItem Item
         {
             get
@@ -46,6 +57,9 @@
             }
         }
 
+        /// <summary>
+        /// Gets the name of the blueprint item.
+        /// </summary>
         public string ItemName
         {
             get

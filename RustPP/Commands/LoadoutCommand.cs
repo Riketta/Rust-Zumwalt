@@ -11,6 +11,7 @@
             int items;
             if (int.TryParse(Core.config.GetSetting("AdminLoadout", "items"), out items))
             {
+                var pl = Fougerite.Server.Cache[Arguments.argUser.userID];
                 for (int i = 1; i <= items; i++)
                 {
                     string name = Core.config.GetSetting("AdminLoadout", "item" + i + "_name");
@@ -21,7 +22,7 @@
                     Logger.LogDebug(string.Format("[Loadout] gave {0} to {1}", newargs, Arguments.argUser.displayName));
                 }
 
-                Util.sayUser(Arguments.argUser.networkPlayer, Core.Name, "You have spawned an Admin Loadout!");
+                pl.MessageFrom(Core.Name, "You have spawned an Admin Loadout!");
             }
         }
     }

@@ -4,21 +4,31 @@
     using System;
     using System.Collections.Generic;
 
-    internal class InstaKOCommand : ChatCommand
+    public class InstaKOCommand : ChatCommand
     {
-        private System.Collections.Generic.List<ulong> userIDs = new System.Collections.Generic.List<ulong>();
+        public System.Collections.Generic.List<ulong> userIDs = new System.Collections.Generic.List<ulong>();
 
         public override void Execute(ref ConsoleSystem.Arg Arguments, ref string[] ChatArguments)
         {
-            if (!this.userIDs.Contains(Arguments.argUser.userID))
+            var pl = Fougerite.Server.Cache[Arguments.argUser.userID];
+            if (pl.CommandCancelList.Contains("instako"))
             {
-                this.userIDs.Add(Arguments.argUser.userID);
-                Util.sayUser(Arguments.argUser.networkPlayer, Core.Name, "InstaKO mode has been activated!");
+                if (userIDs.Contains(pl.UID))
+                {
+                    userIDs.Remove(pl.UID);
+                    pl.MessageFrom(Core.Name, "InstaKO mode has been deactivated!");
+                }
+                return;
+            }
+            if (!this.userIDs.Contains(pl.UID))
+            {
+                this.userIDs.Add(pl.UID);
+                pl.MessageFrom(Core.Name, "InstaKO mode has been activated!");
             }
             else
             {
-                this.userIDs.Remove(Arguments.argUser.userID);
-                Util.sayUser(Arguments.argUser.networkPlayer, Core.Name, "InstaKO mode has been deactivated!");
+                this.userIDs.Remove(pl.UID);
+                pl.MessageFrom(Core.Name, "InstaKO mode has been deactivated!");
             }
         }
 

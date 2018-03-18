@@ -11,10 +11,11 @@
     {
         public override void Execute(ref ConsoleSystem.Arg Arguments, ref string[] ChatArguments)
         {
+            var pl = Fougerite.Server.Cache[Arguments.argUser.userID];
             string queryName = Arguments.ArgsStr.Trim(new char[] { ' ', '"' });
             if (queryName == string.Empty)
             {
-                Util.sayUser(Arguments.argUser.networkPlayer, Core.Name, "Ban Usage:  /ban playerName");
+                pl.MessageFrom(Core.Name, "Ban Usage:  /ban playerName");
                 return;
             }
 
@@ -26,43 +27,43 @@
 
             if (query.Count() == 1)
             {
-                BanPlayer(query.First(), Arguments.argUser);
-                return;
+                BanPlayer(query.First(), pl);
             }
             else
             {
-                Util.sayUser(Arguments.argUser.networkPlayer, Core.Name, string.Format("{0}  players match  {1}: ", query.Count(), queryName));
+                pl.MessageFrom(Core.Name, string.Format("{0}  players match  {1}: ", query.Count(), queryName));
                 for (int i = 1; i < query.Count(); i++)
                 {
-                    Util.sayUser(Arguments.argUser.networkPlayer, Core.Name, string.Format("{0} - {1}", i, query.ElementAt(i).DisplayName));
+                    pl.MessageFrom(Core.Name, string.Format("{0} - {1}", i, query.ElementAt(i).DisplayName));
                 }
-                Util.sayUser(Arguments.argUser.networkPlayer, Core.Name, "0 - Cancel");
-                Util.sayUser(Arguments.argUser.networkPlayer, Core.Name, "Please enter the number matching the player to ban.");
-                Core.banWaitList[Arguments.argUser.userID] = query;
+                pl.MessageFrom(Core.Name, "0 - Cancel");
+                pl.MessageFrom(Core.Name, "Please enter the number matching the player to ban.");
+                Core.banWaitList[pl.UID] = query;
             }
         }
 
         public void PartialNameBan(ref ConsoleSystem.Arg Arguments, int id)
         {
+            var pl = Fougerite.Server.Cache[Arguments.argUser.userID];
             if (id == 0)
             {
-                Util.sayUser(Arguments.argUser.networkPlayer, Core.Name, "Canceled!");
+                pl.MessageFrom(Core.Name, "Canceled!");
                 return;
             }
-            var list = Core.banWaitList[Arguments.argUser.userID] as IEnumerable<PList.Player>;
-            BanPlayer(list.ElementAt(id), Arguments.argUser);
+            var list = Core.banWaitList[pl.UID] as IEnumerable<PList.Player>;
+            BanPlayer(list.ElementAt(id), pl);
         }
 
-        public void BanPlayer(PList.Player ban, NetUser myAdmin)
+        public void BanPlayer(PList.Player ban, Fougerite.Player myAdmin)
         {
-            if (ban.UserID == myAdmin.userID)
+            if (ban.UserID == myAdmin.UID)
             {
-                Util.sayUser(myAdmin.networkPlayer, Core.Name, "Seriously? You can't ban yourself.");
+                myAdmin.MessageFrom(Core.Name, "Seriously? You can't ban yourself.");
                 return;
             }
-            if (Administrator.IsAdmin(ban.UserID) && !Administrator.GetAdmin(myAdmin.userID).HasPermission("RCON"))
+            if (Administrator.IsAdmin(ban.UserID) && !Administrator.GetAdmin(myAdmin.UID).HasPermission("RCON"))
             {
-                Util.sayUser(myAdmin.networkPlayer, Core.Name, ban.DisplayName + " is an administrator. You can't ban administrators.");
+                myAdmin.MessageFrom(Core.Name, ban.DisplayName + " is an administrator. You can't ban administrators.");
                 return;
             }
             if (RustPP.Core.blackList.Contains(ban.UserID))
@@ -72,10 +73,10 @@
             }
             Core.blackList.Add(ban);
             Administrator.DeleteAdmin(ban.UserID);
-            Administrator.NotifyAdmins(string.Format("{0} has been banned by {1}.", ban.DisplayName, myAdmin.displayName));
-            PlayerClient client;
-            if (PlayerClient.FindByUserID(ban.UserID, out client))
-                client.netUser.Kick(NetError.Facepunch_Kick_Ban, true);
+            Administrator.NotifyAdmins(string.Format("{0} has been banned by {1}.", ban.DisplayName, myAdmin.Name));
+            Fougerite.Player client = Fougerite.Server.GetServer().FindPlayer(ban.UserID.ToString());
+            if (client != null)
+                client.Disconnect();
         }
     }
 }

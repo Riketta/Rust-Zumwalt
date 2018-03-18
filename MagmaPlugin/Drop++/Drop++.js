@@ -12,7 +12,7 @@ function On_TablesLoaded(Tables)
 	}
 	else
 	{
-		if (Plugin.CreateDir("Tables") == true)
+		if (Plugin.CreateDir("Tables"))
 		{	
 			ExtractTables(Tables);
 			Util.Log("Drop++ : Extracted new tables.");

@@ -1,8 +1,4 @@
-﻿using System.Text;
-using IronPython.Hosting;
-using IronPython.Modules;
-using IronPython.Runtime;
-using IronPython.Runtime.Exceptions;
+﻿using IronPython.Hosting;
 using UnityEngine;
 
 namespace IronPythonModule {
@@ -20,6 +16,9 @@ namespace IronPythonModule {
 		public readonly string Name;
 		public readonly string Code;
 		public readonly object Class;
+	    public readonly string Author;
+	    public readonly string Version;
+	    public readonly string About;
 		public readonly DirectoryInfo RootDir;
 		public readonly ScriptEngine Engine;
 		public readonly ScriptScope Scope;
@@ -29,13 +28,13 @@ namespace IronPythonModule {
 
 		public readonly Dictionary<string, IPTimedEvent> Timers;
 		public readonly List<IPTimedEvent> ParallelTimers;
-	    public List<string> CommandList;
+	    public readonly List<string> CommandList;
 
 		public IPPlugin(string name, string code, DirectoryInfo path) {
 			Name = name;
 			Code = code;
 			RootDir = path;
-			Timers = new Dictionary<string, IPTimedEvent>();
+            Timers = new Dictionary<string, IPTimedEvent>();
             CommandList = new List<string>();
 			ParallelTimers = new List<IPTimedEvent>();
 			Engine = IronPython.Hosting.Python.CreateEngine();
@@ -50,21 +49,37 @@ namespace IronPythonModule {
             Scope.SetVariable("Web", new Fougerite.Web());
 			Scope.SetVariable("Util", Util.GetUtil());
 			Scope.SetVariable("World", World.GetWorld());
-            //Scope.SetVariable("SQLite", new Fougerite.SQLite());
-			Engine.Execute(code, Scope);
+            Scope.SetVariable("PluginCollector", GlobalPluginCollector.GetPluginCollector());
+            Scope.SetVariable("Loom", Fougerite.Loom.Current);
+            Scope.SetVariable("JSON", Fougerite.JsonAPI.GetInstance);
+            Scope.SetVariable("MySQL", Fougerite.MySQLConnector.GetInstance);
+            Scope.SetVariable("SQLite", Fougerite.SQLiteConnector.GetInstance);
+            Engine.Execute(code, Scope);
 			Class = Engine.Operations.Invoke(Scope.GetVariable(name));
 			Globals = Engine.Operations.GetMemberNames(Class);
-		}
+            object ath = GetGlobalObject("__author__");
+            object abt = GetGlobalObject("__about__");
+            object vr = GetGlobalObject("__version__");
+            Author = ath == null ? "Unknown" : ath.ToString();
+            About = abt == null ? "" : abt.ToString();
+            Version = vr == null ? "1.0" : vr.ToString();
+        }
 
-		public void Invoke(string func, params object[] obj) {
-			try {
-				if (Globals.Contains(func))
-					Engine.Operations.InvokeMember(Class, func, obj);
-				else
-					Fougerite.Logger.LogDebug("[IronPython] Function: " + func + " not found in plugin: " + Name);
-			} catch (Exception ex) {
+		public object Invoke(string func, params object[] obj)
+        {
+			try
+            {
+                if (Globals.Contains(func))
+                {
+                    return Engine.Operations.InvokeMember(Class, func, obj);
+                }
+                Fougerite.Logger.LogDebug("[IronPython] Function: " + func + " not found in plugin: " + Name);
+			}
+            catch (Exception ex) {
+                Fougerite.Logger.LogError("[IronPython] Error in plugin " + Name + ":");
 				Fougerite.Logger.LogError(Engine.GetService<ExceptionOperations>().FormatException(ex));
 			}
+		    return null;
 		}
 
 		#region file operations
@@ -162,9 +177,9 @@ namespace IronPythonModule {
 
             File.AppendAllText(path, "[" + DateTime.Now.ToShortDateString() + " " + DateTime.Now.ToString("HH:mm:ss") + "] " + text + "\r\n");
             FileInfo fi = new FileInfo(path);
-            float mega = (fi.Length / 1024f) / 1024f;
             if (fi.Exists)
             {
+                float mega = (fi.Length / 1024f) / 1024f;
                 if (mega > 1.0)
                 {
                     try
@@ -206,11 +221,23 @@ namespace IronPythonModule {
 			}
 		}
 
-		#endregion
+        public object GetGlobalObject(string identifier)
+        {
+            try
+            {
+                return Scope.GetVariable(identifier);
+            }
+            catch
+            {
+                return null;
+            }
+        }
 
-		#region inifiles
+        #endregion
 
-		public IniParser GetIni(string path) {
+        #region inifiles
+
+        public IniParser GetIni(string path) {
 			path = ValidateRelativePath(path + ".ini");
 			if (path == null)
 				return (IniParser)null;
@@ -254,13 +281,13 @@ namespace IronPythonModule {
 		#endregion
 
 		public IPPlugin GetPlugin(string name) {
-			IPPlugin plugin;	
-			plugin = IPModule.Plugins[name];
+			IPPlugin plugin;
+            IPModule.Plugins.TryGetValue(name, out plugin);
 			if (plugin == null) {
 				Logger.LogDebug("[IPModule] [GetPlugin] '" + name + "' plugin not found!");
 				return null;
 			}
-			return plugin;
+            return plugin;
 		}
 
 		#region time
@@ -288,11 +315,11 @@ namespace IronPythonModule {
 		#region hooks
 
 		public void OnTablesLoaded(Dictionary<string, LootSpawnList> tables) {
-			Invoke ("On_TablesLoaded", tables);
+			this.Invoke("On_TablesLoaded", tables);
 		}
 
 		public void OnAllPluginsLoaded() {
-			Invoke("On_AllPluginsLoaded", new object[0]);
+			this.Invoke("On_AllPluginsLoaded", new object[0]);
 		}
 
 		public void OnBlueprintUse(Fougerite.Player player, BPUseEvent evt) {
@@ -305,15 +332,6 @@ namespace IronPythonModule {
 
 		public void OnCommand(Fougerite.Player player, string command, string[] args)
 		{
-            if (Fougerite.Server.CommandCancelList.ContainsKey(player))
-		    {
-                var list = Fougerite.Server.CommandCancelList[player];
-		        if (list.Contains(command))
-		        {
-		            player.Message("You cannot execute " + command + " at the moment!");
-		            return;
-		        }
-		    }
 		    if (CommandList.Count != 0 && !CommandList.Contains(command) && !Fougerite.Server.ForceCallForCommands.Contains(command)) { return; }
 			this.Invoke("On_Command", new object[] { player, command, args });
 		}
@@ -339,8 +357,20 @@ namespace IronPythonModule {
 			this.Invoke("On_EntityDecay", new object[] { evt });
 		}
 
-		public void OnEntityDeployed(Fougerite.Player player, Entity entity) {
-			this.Invoke("On_EntityDeployed", new object[] { player, entity });
+		public void OnEntityDeployed(Fougerite.Player player, Entity entity, Fougerite.Player actualplacer) {
+		    try
+		    {
+		        Engine.Operations.InvokeMember(Class, "On_EntityDeployed", new object[] {player, entity, actualplacer});
+		    }
+		    catch (Microsoft.Scripting.ArgumentTypeException)
+		    {
+		        this.Invoke("On_EntityDeployed", new object[] {player, entity});
+		    }
+		    catch (Exception ex)
+		    {
+                Fougerite.Logger.LogError("[IronPython] Error in plugin " + Name + ":");
+                Fougerite.Logger.LogError(Engine.GetService<ExceptionOperations>().FormatException(ex));
+            }
 		}
 
 		public void OnEntityDestroyed(DestroyEvent evt) {
@@ -408,6 +438,11 @@ namespace IronPythonModule {
 			this.Invoke("On_ServerShutdown", new object[0]);
 		}
 
+	    public void OnServerSaved()
+	    {
+            this.Invoke("On_ServerSaved", new object[0]);
+        }
+
         public void OnCrafting(CraftingEvent e)
 	    {
             this.Invoke("On_Crafting", new object[] { e });
@@ -428,12 +463,27 @@ namespace IronPythonModule {
             this.Invoke("On_ItemRemoved", new object[] { e });
         }
 
+        public void OnItemPickup(ItemPickupEvent e)
+        {
+            this.Invoke("On_ItemPickup", new object[] { e });
+        }
+
+        public void OnFallDamage(FallDamageEvent e)
+        {
+            this.Invoke("On_FallDamage", new object[] { e });
+        }
+
         public void OnAirdrop(Vector3 v)
         {
             this.Invoke("On_Airdrop", new object[] { v });
         }
 
-	    public void OnSteamDeny(SteamDenyEvent e)
+        /*public void OnAirdropCrateDropped(GameObject go)
+        {
+            this.Invoke("On_AirdropCrateDropped", new object[] { go });
+        }*/
+
+        public void OnSteamDeny(SteamDenyEvent e)
 	    {
             this.Invoke("On_SteamDeny", new object[] { e });
 	    }
@@ -448,13 +498,48 @@ namespace IronPythonModule {
             this.Invoke("On_PluginShutdown", new object[0]);
         }
 
-		/*public void OnTimerCB(IPTimedEvent evt) {
+	    public void OnShowTalker(uLink.NetworkPlayer np, Fougerite.Player player)
+	    {
+            this.Invoke("On_VoiceChat", new object[] { np, player });
+        }
+
+        public void OnLootUse(LootStartEvent le)
+        {
+            this.Invoke("On_LootUse", new object[] { le });
+        }
+
+        public void OnBanEvent(BanEvent be)
+        {
+            this.Invoke("On_PlayerBan", new object[] { be });
+        }
+
+        public void OnRepairBench(Fougerite.Events.RepairEvent be)
+        {
+            this.Invoke("On_RepairBench", new object[] { be });
+        }
+
+        public void OnItemMove(ItemMoveEvent be)
+        {
+            this.Invoke("On_ItemMove", new object[] { be });
+        }
+
+		public void OnGenericSpawnLoad(GenericSpawner gs)
+		{
+			this.Invoke("On_GenericSpawnLoad", new object[] { gs });
+		}
+		
+		public void OnServerLoaded()
+		{
+			this.Invoke("On_ServerLoaded");
+		}
+
+        /*public void OnTimerCB(IPTimedEvent evt) {
 			if (Globals.Contains(evt.Name + "Callback")) {
 				Invoke(evt.Name + "Callback", evt);
 			}
 		}*/
 
-	    public void OnTimerCB(IPTimedEvent evt)
+        public void OnTimerCB(IPTimedEvent evt)
 	    {
 	        if (Globals.Contains(evt.Name + "Callback"))
 	        {
@@ -468,9 +553,10 @@ namespace IronPythonModule {
 	            }
 	            catch (Exception ex)
 	            {
-	                Fougerite.Logger.LogError(Engine.GetService<ExceptionOperations>().FormatException(ex));
-	            }
-	        }
+                    Fougerite.Logger.LogError("[IronPython] Error in plugin " + Name + ":");
+                    Fougerite.Logger.LogError(Engine.GetService<ExceptionOperations>().FormatException(ex));
+                }
+            }
 	    }
 
 	    #endregion
@@ -558,6 +644,11 @@ namespace IronPythonModule {
 		public Dictionary<string, object> CreateDict() {
 			return new Dictionary<string, object>();
 		}
+
+	    public List<string> CreateList()
+	    {
+	        return new List<string>();
+	    }
 	}
 }
 

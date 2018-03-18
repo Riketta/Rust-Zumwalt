@@ -1,10 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-
-namespace Fougerite
+﻿namespace Fougerite
 {
+    /// <summary>
+    /// This class is created when an Item is added or removed to/from an inventory.
+    /// </summary>
     public class FInventory
     {
         private Inventory _inv;
@@ -18,22 +16,42 @@ namespace Fougerite
                 this._items[i] = new EntityItem(this._inv, i);
         }
 
+        /// <summary>
+        /// Adds one item to the inventory.
+        /// </summary>
+        /// <param name="name"></param>
         public void AddItem(string name)
         {
             this.AddItem(name, 1);
         }
 
+        /// <summary>
+        /// Adds an Item with the given amount to the inventory.
+        /// </summary>
+        /// <param name="name"></param>
+        /// <param name="amount"></param>
         public void AddItem(string name, int amount)
         {
             ItemDataBlock item = DatablockDictionary.GetByName(name);
             this._inv.AddItemAmount(item, amount);
         }
 
+        /// <summary>
+        /// Adds an item to the specified slot.
+        /// </summary>
+        /// <param name="name"></param>
+        /// <param name="slot"></param>
         public void AddItemTo(string name, int slot)
         {
             this.AddItemTo(name, slot, 1);
         }
 
+        /// <summary>
+        /// Adds an item to the specified slot with the given amount.
+        /// </summary>
+        /// <param name="name"></param>
+        /// <param name="slot"></param>
+        /// <param name="amount"></param>
         public void AddItemTo(string name, int slot, int amount)
         {
             ItemDataBlock byName = DatablockDictionary.GetByName(name);
@@ -44,6 +62,9 @@ namespace Fougerite
             }
         }
 
+        /// <summary>
+        /// Deletes all items from the inventory.
+        /// </summary>
         public void ClearAll()
         {
             this._inv.Clear();
@@ -62,6 +83,12 @@ namespace Fougerite
             return num;
         }
 
+        /// <summary>
+        /// Checks if the inventory has the specified item.
+        /// </summary>
+        /// <param name="name"></param>
+        /// <param name="amount"></param>
+        /// <returns></returns>
         public bool HasItem(string name, int amount = 1)
         {
             int num = 0;
@@ -73,11 +100,21 @@ namespace Fougerite
             return (num >= amount);
         }
 
+        /// <summary>
+        /// Moves the item from s1 slot to s2 slot.
+        /// </summary>
+        /// <param name="s1"></param>
+        /// <param name="s2"></param>
         public void MoveItem(int s1, int s2)
         {
             this._inv.MoveItemAtSlotToEmptySlot(this._inv, s1, s2);
         }
 
+        /// <summary>
+        /// Removes the specific item with the given amount.
+        /// </summary>
+        /// <param name="name"></param>
+        /// <param name="amount"></param>
         public void RemoveItem(string name, int amount = 1)
         {
             foreach (EntityItem item in this.Items)
@@ -104,6 +141,11 @@ namespace Fougerite
             }
         }
 
+        /// <summary>
+        /// Removes an item from the specified slot with the given amount.
+        /// </summary>
+        /// <param name="slot"></param>
+        /// <param name="amount"></param>
         public void RemoveItem(int slot, int amount = 1)
         {
             EntityItem item = this.Items[slot];
@@ -118,6 +160,9 @@ namespace Fougerite
             this._inv.RemoveItem(item.RInventoryItem);
         }
 
+        /// <summary>
+        /// Counts the freeslots in the inventory.
+        /// </summary>
         public int FreeSlots
         {
             get
@@ -126,6 +171,9 @@ namespace Fougerite
             }
         }
 
+        /// <summary>
+        /// Gets the maximum slot amount rom the inventory.
+        /// </summary>
         public int SlotCount
         {
             get
@@ -134,6 +182,9 @@ namespace Fougerite
             }
         }
 
+        /// <summary>
+        /// Gets the items from the inventory.
+        /// </summary>
         public EntityItem[] Items
         {
             get
