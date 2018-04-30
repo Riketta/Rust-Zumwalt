@@ -1,14 +1,17 @@
 ﻿namespace Fougerite.Events
 {
+    /// <summary>
+    /// This class is created when a player is gathering from an animal or from a resource.
+    /// </summary>
     public class GatherEvent
     {
         private string _item;
         private bool _over;
         private int _qty;
-        private string _type;
-        private ResourceTarget res;
-        private ItemDataBlock dataBlock = null;
-        private ResourceGivePair resourceGivePair = null;
+        private readonly string _type;
+        private readonly ResourceTarget res;
+        private readonly ItemDataBlock dataBlock = null;
+        private readonly ResourceGivePair resourceGivePair = null;
 
         public GatherEvent(ResourceTarget r, ItemDataBlock db, int qty)
         {
@@ -30,6 +33,9 @@
             this.Override = false;
         }
 
+        /// <summary>
+        /// Gets the amount of resources left in the object.
+        /// </summary>
         public int AmountLeft
         {
             get
@@ -38,6 +44,9 @@
             }
         }
 
+        /// <summary>
+        /// Gets the name of item that we are receiving from the gather.
+        /// </summary>
         public string Item
         {
             get
@@ -50,6 +59,9 @@
             }
         }
 
+        /// <summary>
+        /// Gets or Sets if we should minimize the amount of resources left in the resource.
+        /// </summary>
         public bool Override
         {
             get
@@ -62,6 +74,9 @@
             }
         }
 
+        /// <summary>
+        /// Gets the percent of the resources.
+        /// </summary>
         public float PercentFull
         {
             get
@@ -70,6 +85,9 @@
             }
         }
 
+        /// <summary>
+        /// Gets the Quantity of the items we are gathering.
+        /// </summary>
         public int Quantity
         {
             get
@@ -82,6 +100,9 @@
             }
         }
 
+        /// <summary>
+        /// Gets the type of resource we are hitting.
+        /// </summary>
         public string Type
         {
             get
@@ -90,6 +111,9 @@
             }
         }
 
+        /// <summary>
+        /// Gets the resource target that we are hitting.
+        /// </summary>
         public ResourceTarget ResourceTarget
         {
             get
@@ -98,6 +122,9 @@
             }
         }
 
+        /// <summary>
+        /// Gets the itemdatablock that we are gathering.
+        /// </summary>
         public ItemDataBlock ItemDataBlock
         {
             get
@@ -106,6 +133,9 @@
             }
         }
 
+        /// <summary>
+        /// Gets the original ResourceGivePair class.
+        /// </summary>
         public ResourceGivePair ResourceGivePair
         {
             get

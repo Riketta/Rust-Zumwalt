@@ -3,6 +3,9 @@
 	using Fougerite;
 	using System;
 
+	/// <summary>
+	/// This class runs when an entity is destroyed.
+	/// </summary>
 	public class DestroyEvent
 	{
 		private object _attacker;
@@ -49,13 +52,16 @@
 				else if (d.attacker.id.ToString().Contains("Wolf"))
 					weaponName = "Wolf Claw";
 				else if (d.attacker.id.Equals(d.victim.id))
-					weaponName = String.Format("Self ({0})", DamageType);
+					weaponName = string.Format("Self ({0})", DamageType);
 				else
 					weaponName = "Hunting Bow";
 			}
 			this.WeaponName = weaponName;
 		}
 
+		/// <summary>
+		/// Returns the Attacker's object. Can be anything from decay to player.
+		/// </summary>
 		public object Attacker
 		{
 			get
@@ -68,6 +74,9 @@
 			}
 		}
 
+		/// <summary>
+		/// Gets the last damage of the event.
+		/// </summary>
 		public float DamageAmount
 		{
 			get
@@ -80,6 +89,9 @@
 			}
 		}
 
+		/// <summary>
+		/// Gets the DamageEvent class
+		/// </summary>
 		public DamageEvent DamageEvent
 		{
 			get
@@ -92,6 +104,9 @@
 			}
 		}
 
+		/// <summary>
+		/// This Getter tries to find the cause of the damage if possible.
+		/// </summary>
 		public string DamageType
 		{
 			get
@@ -130,6 +145,9 @@
 			}
 		}
 
+		/// <summary>
+		/// This getter returns the entity that is being destroyed.
+		/// </summary>
 		public Fougerite.Entity Entity
 		{
 			get
@@ -142,6 +160,9 @@
 			}
 		}
 
+		/// <summary>
+		/// Gets if the destroy was caused by decay.
+		/// </summary>
 		public bool IsDecay
 		{
 			get
@@ -154,6 +175,9 @@
 			}
 		}
 
+		/// <summary>
+		/// Gets the weaponimpact of the event.
+		/// </summary>
 		public WeaponImpact WeaponData
 		{
 			get
@@ -166,6 +190,9 @@
 			}
 		}
 
+		/// <summary>
+		/// Gets the weapon's name that caused the damage.
+		/// </summary>
 		public string WeaponName
 		{
 			get

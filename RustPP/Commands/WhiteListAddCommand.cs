@@ -10,10 +10,11 @@
     {
         public override void Execute(ref ConsoleSystem.Arg Arguments, ref string[] ChatArguments)
         {
+            var pl = Fougerite.Server.Cache[Arguments.argUser.userID];
             string playerName = string.Join(" ", ChatArguments).Trim(new char[] { ' ', '"' });
             if (playerName == string.Empty)
             {
-                Util.sayUser(Arguments.argUser.networkPlayer, Core.Name, "Whitelist Usage:  /addwl playerName");
+                pl.MessageFrom(Core.Name, "Whitelist Usage:  /addwl playerName");
                 return;
             }
             PList list = new PList();
@@ -22,61 +23,64 @@
             {
                 if (entry.Value.Equals(playerName, StringComparison.OrdinalIgnoreCase))
                 {
-                    Whitelist(new PList.Player(entry.Key, entry.Value), Arguments.argUser);
+                    Whitelist(new PList.Player(entry.Key, entry.Value), pl);
                     return;
-                } else if (entry.Value.ToUpperInvariant().Contains(playerName.ToUpperInvariant()))
+                }
+                if (entry.Value.ToUpperInvariant().Contains(playerName.ToUpperInvariant()))
                     list.Add(entry.Key, entry.Value);
             }
             if (list.Count == 1)
             {
-                foreach (PlayerClient client in PlayerClient.All)
+                foreach (Fougerite.Player client in Fougerite.Server.GetServer().Players)
                 {
-                    if (client.netUser.displayName.Equals(playerName, StringComparison.OrdinalIgnoreCase))
+                    if (client.Name.Equals(playerName, StringComparison.OrdinalIgnoreCase))
                     {                
-                        Whitelist(new PList.Player(client.netUser.userID, client.netUser.displayName), Arguments.argUser);
+                        Whitelist(new PList.Player(client.UID, client.Name), pl);
                         return;
-                    } else if (client.netUser.displayName.ToUpperInvariant().Contains(playerName.ToUpperInvariant()))
-                        list.Add(client.netUser.userID, client.netUser.displayName);
+                    }
+                    if (client.Name.ToUpperInvariant().Contains(playerName.ToUpperInvariant()))
+                        list.Add(client.UID, client.Name);
                 }
             }
             if (list.Count == 1)
             {
-                Util.sayUser(Arguments.argUser.networkPlayer, Core.Name, "No player found with the name: " + playerName);
+                pl.MessageFrom(Core.Name, "No player found with the name: " + playerName);
                 return;
             }
-            Util.sayUser(Arguments.argUser.networkPlayer, Core.Name, string.Format("{0}  player{1} {2}: ", ((list.Count - 1)).ToString(), (((list.Count - 1) > 1) ? "s match" : " matches"), playerName));
+            pl.MessageFrom(Core.Name, string.Format("{0}  player{1} {2}: ", ((list.Count - 1)).ToString(), (((list.Count - 1) > 1) ? "s match" : " matches"), playerName));
             for (int i = 1; i < list.Count; i++)
             {
-                Util.sayUser(Arguments.argUser.networkPlayer, Core.Name, string.Format("{0} - {1}", i, list.PlayerList[i].DisplayName));
+                pl.MessageFrom(Core.Name, string.Format("{0} - {1}", i, list.PlayerList[i].DisplayName));
             }
-            Util.sayUser(Arguments.argUser.networkPlayer, Core.Name, "0 - Cancel");
-            Util.sayUser(Arguments.argUser.networkPlayer, Core.Name, "Please enter the number matching the player to whitelist.");
-            Core.whiteWaitList[Arguments.argUser.userID] = list;
+            pl.MessageFrom(Core.Name, "0 - Cancel");
+            pl.MessageFrom(Core.Name, "Please enter the number matching the player to whitelist.");
+            Core.whiteWaitList[pl.UID] = list;
         }
 
         public void PartialNameWhitelist(ref ConsoleSystem.Arg Arguments, int id)
         {
-            if (Core.whiteWaitList.Contains(Arguments.argUser.userID))
+            var pl = Fougerite.Server.Cache[Arguments.argUser.userID];
+            if (Core.whiteWaitList.Contains(pl.UID))
             {
                 if (id == 0)
                 {
-                    Util.sayUser(Arguments.argUser.networkPlayer, Core.Name, "Cancelled!");
+                    pl.MessageFrom(Core.Name, "Cancelled!");
                     return;
                 }
-                PList list = (PList)Core.whiteWaitList[Arguments.argUser.userID];
-                Whitelist(list.PlayerList[id], Arguments.argUser);
+                PList list = (PList)Core.whiteWaitList[pl.UID];
+                Whitelist(list.PlayerList[id], pl);
             }
         }
 
-        public void Whitelist(PList.Player white, NetUser myAdmin)
+        public void Whitelist(PList.Player white, Fougerite.Player myAdmin)
         {
             if (Core.whiteList.Contains(white.UserID))
             {
-                Util.sayUser(myAdmin.networkPlayer, Core.Name, white.DisplayName + " is already whitelisted.");
+                myAdmin.MessageFrom(Core.Name, white.DisplayName + " is already whitelisted.");
             } else
             {
                 Core.whiteList.Add(white);
-                Administrator.NotifyAdmins(string.Format("{0} has been whitelisted by {1}.", white.DisplayName, myAdmin.displayName));
+                Administrator.NotifyAdmins(string.Format("{0} has been whitelisted by {1}.", white.DisplayName, myAdmin.Name));
             }
         }
     }

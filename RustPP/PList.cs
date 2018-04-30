@@ -1,7 +1,9 @@
-﻿namespace RustPP
+﻿
+namespace RustPP
 {
     using System;
     using System.Collections.Generic;
+    using System.Security;
 
     public class PList
     {
@@ -19,7 +21,7 @@
 
         public void Add(ulong uid, string dname)
         {
-            this.players.Add(new Player(uid, dname));
+            this.players.Add(new Player(uid, SecurityElement.Escape(dname)));
         }
 
         public void Add(Player player)

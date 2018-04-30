@@ -1,6 +1,9 @@
 ﻿namespace Fougerite.Events
 {
 
+    /// <summary>
+    /// This class is created on decay event.
+    /// </summary>
     public class DecayEvent
     {
         private float _dmg;
@@ -12,6 +15,9 @@
             this.DamageAmount = dmg;
         }
 
+        /// <summary>
+        /// Gets / Sets the damage of the decay event.
+        /// </summary>
         public float DamageAmount
         {
             get
@@ -24,6 +30,9 @@
             }
         }
 
+        /// <summary>
+        /// Gets the Entity that the decay is running on.
+        /// </summary>
         public Fougerite.Entity Entity
         {
             get

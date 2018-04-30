@@ -1,4 +1,6 @@
-﻿namespace Fougerite
+﻿using System;
+
+namespace Fougerite
 {
     public class ItemsBlocks : System.Collections.Generic.List<ItemDataBlock>
     {
@@ -10,11 +12,16 @@
             }
         }
 
+        /// <summary>
+        /// Finds the DataBlock by name.
+        /// </summary>
+        /// <param name="str"></param>
+        /// <returns></returns>
         public ItemDataBlock Find(string str)
         {
             foreach (ItemDataBlock block in this)
             {
-                if (block.name.ToUpperInvariant() == str.ToUpperInvariant())
+                if (string.Equals(block.name, str, StringComparison.InvariantCultureIgnoreCase))
                 {
                     return block;
                 }

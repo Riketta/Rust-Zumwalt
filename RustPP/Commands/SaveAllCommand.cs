@@ -8,12 +8,13 @@
     {
         public override void Execute(ref ConsoleSystem.Arg Arguments, ref string[] ChatArguments)
         {
+            var pl = Fougerite.Server.Cache[Arguments.argUser.userID];
             AvatarSaveProc.SaveAll();
-            Util.sayUser(Arguments.argUser.networkPlayer, Core.Name, "Saved ALL Avatar files!");
+            pl.MessageFrom(Core.Name, "Saved ALL Avatar files!");
             ServerSaveManager.AutoSave();
-            Util.sayUser(Arguments.argUser.networkPlayer, Core.Name, "Saved server global state!");
+            pl.MessageFrom(Core.Name, "Saved server global state!");
             Helper.CreateSaves();
-            Util.sayUser(Arguments.argUser.networkPlayer, Core.Name, "Saved " + Core.Name + " data!");
+            pl.MessageFrom(Core.Name, "Saved " + Core.Name + " data!");
         }
     }
 }
